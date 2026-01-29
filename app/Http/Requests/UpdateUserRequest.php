@@ -31,6 +31,8 @@ class UpdateUserRequest extends FormRequest
                 'max:255',
                 Rule::unique('users')->ignore($this->user)
             ],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'is_active' => ['boolean'],
             'roles' => ['required', 'array'],
             'roles.*' => ['exists:roles,id'],
         ];
@@ -52,6 +54,8 @@ class UpdateUserRequest extends FormRequest
             'email.email' => __('users.emailInvalid'),
             'email.max' => __('validation.max.string'),
             'email.unique' => __('users.emailExists'),
+            'department_id.exists' => 'Phòng ban được chọn không hợp lệ',
+            'is_active.boolean' => 'Trạng thái phải là true hoặc false',
             'roles.required' => 'Vai trò là bắt buộc',
             'roles.array' => 'Vai trò phải là một mảng',
             'roles.*.exists' => 'Vai trò được chọn không hợp lệ',

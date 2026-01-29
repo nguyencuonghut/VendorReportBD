@@ -25,6 +25,8 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'is_active' => ['boolean'],
             'roles' => ['required', 'array'],
             'roles.*' => ['exists:roles,id'],
         ];
@@ -50,6 +52,8 @@ class StoreUserRequest extends FormRequest
             'password.string' => __('validation.string'),
             'password.min' => __('users.passwordMin'),
             'password.confirmed' => __('users.passwordConfirmMismatch'),
+            'department_id.exists' => 'Phòng ban được chọn không hợp lệ',
+            'is_active.boolean' => 'Trạng thái phải là true hoặc false',
             'roles.required' => 'Vai trò là bắt buộc',
             'roles.array' => 'Vai trò phải là một mảng',
             'roles.*.exists' => 'Vai trò được chọn không hợp lệ',

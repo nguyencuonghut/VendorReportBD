@@ -25,6 +25,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'department_id', // ⭐ Mới
+        'is_active',     // ⭐ Mới
+        'last_login_at', // ⭐ Mới
     ];
 
     /**
@@ -47,7 +50,32 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean', // ⭐ Mới
+            'last_login_at' => 'datetime', // ⭐ Mới
         ];
+    }
+
+    /**
+     * Relationships
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function createdReports()
+    {
+        return $this->hasMany(VendorReport::class, 'created_by');
+    }
+
+    public function assignedApprovalSteps()
+    {
+        return $this->hasMany(VendorReportApprovalStep::class, 'assignee_user_id');
+    }
+
+    public function uploadedFiles()
+    {
+        return $this->hasMany(VendorReportFile::class, 'uploaded_by');
     }
 
     /**

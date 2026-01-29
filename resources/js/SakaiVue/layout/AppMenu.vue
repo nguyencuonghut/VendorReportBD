@@ -10,18 +10,27 @@ const { isSuperAdmin } = usePermission();
 const model = computed(() => {
     const items = [
         {
-            label: t('nav.home'),
-            items: [{ label: t('nav.home'), icon: 'pi pi-fw pi-home', to: '/' }]
+            label: 'Trang chủ',
+            items: [{ label: 'Trang chủ', icon: 'pi pi-fw pi-home', to: '/' }]
+        },
+        {
+            label: 'Quản lý phiếu',
+            items: [
+                { label: 'Phiếu đề nghị', icon: 'pi pi-fw pi-file-edit', to: '/vendor-reports' },
+                { label: 'Phiếu của tôi', icon: 'pi pi-fw pi-user-edit', to: '/vendor-reports?filter=my-reports' },
+                { label: 'Chờ phê duyệt', icon: 'pi pi-fw pi-clock', to: '/vendor-reports?filter=pending-approval' },
+            ]
         },
     ];
 
     // Only show System menu for Super Admin
     if (isSuperAdmin()) {
         items.push({
-            label: t('nav.system'),
+            label: 'Quản trị',
             items: [
-                { label: t('nav.users'), icon: 'pi pi-fw pi-users', to: '/users' },
-                { label: t('nav.roles'), icon: 'pi pi-fw pi-lock', to: '/roles' },
+                { label: 'Phòng ban', icon: 'pi pi-fw pi-sitemap', to: '/departments' },
+                { label: 'Người dùng', icon: 'pi pi-fw pi-users', to: '/users' },
+                { label: 'Vai trò', icon: 'pi pi-fw pi-lock', to: '/roles' },
                 {
                     label: 'Backup & Bảo trì',
                     icon: 'pi pi-fw pi-shield',

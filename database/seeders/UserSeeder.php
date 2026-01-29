@@ -13,11 +13,15 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Get all departments for random assignment
+        $departments = \App\Models\Department::pluck('id')->toArray();
+
         // Create super admin user
         $superAdmin = User::factory()->create([
             'name' => 'Tony Nguyen',
             'email' => 'nguyenvancuong@honghafeed.com.vn',
             'password' => bcrypt('Hongha@123'),
+            'department_id' => $departments[array_rand($departments)] ?? null,
         ]);
         $superAdmin->assignRole('Super Admin');
 
@@ -26,6 +30,7 @@ class UserSeeder extends Seeder
             'name' => 'Admin User',
             'email' => 'admin@example.com',
             'password' => bcrypt('password'),
+            'department_id' => $departments[array_rand($departments)] ?? null,
         ]);
         $admin->assignRole('Admin');
 
@@ -34,12 +39,15 @@ class UserSeeder extends Seeder
             'name' => 'Manager User',
             'email' => 'manager@example.com',
             'password' => bcrypt('password'),
+            'department_id' => $departments[array_rand($departments)] ?? null,
         ]);
         $manager->assignRole('Manager');
 
-        // Create regular users
+        // Create regular users with departments
         foreach (range(1, 10) as $index) {
-            $user = User::factory()->create();
+            $user = User::factory()->create([
+                'department_id' => $departments[array_rand($departments)] ?? null,
+            ]);
             $user->assignRole('User');
         }
 

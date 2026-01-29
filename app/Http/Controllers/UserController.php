@@ -26,14 +26,18 @@ class UserController extends Controller
 
         // Include soft deleted users for Super Admin
         $users = UserResource::collection(
-            User::withTrashed()->with('roles')->withCount('roles')->latest()->get()
+            User::withTrashed()->with(['roles', 'department'])->withCount('roles')->latest()->get()
         )->resolve();
 
         $roles = RoleResource::collection(
             Role::all()
         )->resolve();
 
-        return inertia('UserIndex', compact('users', 'roles'));
+        $departments = \App\Models\Department::active()
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
+        return inertia('UserIndex', compact('users', 'roles', 'departments'));
     }
 
     /**
@@ -55,6 +59,7 @@ class UserController extends Controller
 
         $validated = $request->validated();
         $validated['password'] = Hash::make($validated['password']);
+        $validated['is_active'] = $validated['is_active'] ?? true;
 
         $user = User::create($validated);
 
@@ -70,6 +75,8 @@ class UserController extends Controller
             ->withProperties([
                 'user_name' => $user->name,
                 'user_email' => $user->email,
+                'department_id' => $user->department_id,
+                'is_active' => $user->is_active,
                 'roles' => $validated['roles'] ?? []
             ])
             ->log('Đã tạo người dùng mới');
@@ -99,8 +106,20 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
+        $user->load(['roles', 'department']);
+
+        $roles = RoleResource::collection(
+            Role::all()
+        )->resolve();
+
+        $departments = \App\Models\Department::active()
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
         return inertia('UserEdit', [
-            'user' => new UserResource($user)
+            'user' => (new UserResource($user))->resolve(),
+            'roles' => $roles,
+            'departments' => $departments,
         ]);
     }
 
@@ -112,12 +131,12 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         $validated = $request->validated();
-        
+
         // Store old values for logging
         $oldName = $user->name;
         $oldEmail = $user->email;
         $changes = [];
-        
+
         // Check what changed
         if (isset($validated['name']) && $validated['name'] !== $oldName) {
             $changes['name'] = ['old' => $oldName, 'new' => $validated['name']];

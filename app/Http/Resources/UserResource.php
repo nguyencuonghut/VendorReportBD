@@ -19,6 +19,17 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,
+            'department_id' => $this->department_id,
+            'department' => $this->when(
+                $this->relationLoaded('department') && $this->department,
+                fn() => [
+                    'id' => $this->department->id,
+                    'code' => $this->department->code,
+                    'name' => $this->department->name,
+                ]
+            ),
+            'is_active' => $this->is_active,
+            'last_login_at' => $this->last_login_at,
             'roles' => $this->when(
                 $this->relationLoaded('roles'),
                 fn() => RoleResource::collection($this->roles)->resolve()

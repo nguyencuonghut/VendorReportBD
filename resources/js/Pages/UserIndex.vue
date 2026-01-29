@@ -45,6 +45,12 @@
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false" v-if="isSuperAdmin()"></Column>
                 <Column field="name" :header="t('users.name')" sortable style="min-width: 16rem"></Column>
                 <Column field="email" :header="t('users.email')" sortable style="min-width: 10rem"></Column>
+                <Column field="department" header="Phòng ban" style="min-width: 12rem">
+                    <template #body="slotProps">
+                        <span v-if="slotProps.data.department">{{ slotProps.data.department.name }}</span>
+                        <span v-else class="text-gray-400">-</span>
+                    </template>
+                </Column>
                 <Column field="roles" :header="t('users.roles')" style="min-width: 12rem">
                     <template #body="slotProps">
                         <Tag v-for="role in slotProps.data.roles" :key="role.id" :value="role.name" severity="info" class="mr-1" />
@@ -53,6 +59,7 @@
                 <Column field="status" :header="t('users.status')" style="min-width: 8rem">
                     <template #body="slotProps">
                         <Badge v-if="slotProps.data.is_deleted" value="Đã xóa" severity="danger" />
+                        <Badge v-else-if="!slotProps.data.is_active" value="Tạm khóa" severity="warn" />
                         <Badge v-else value="Hoạt động" severity="success" />
                     </template>
                 </Column>
@@ -105,6 +112,22 @@
                     <small v-if="hasError('email')" class="p-error block mt-1">{{ t(getError('email')) }}</small>
                 </div>
                 <div>
+                    <label for="department_id" class="block font-bold mb-3">Phòng ban</label>
+                    <Select
+                        id="department_id"
+                        v-model="user.department_id"
+                        :options="props.departments"
+                        optionLabel="name"
+                        optionValue="id"
+                        placeholder="Chọn phòng ban"
+                        :invalid="hasError('department_id')"
+                        fluid
+                        filter
+                        showClear
+                    />
+                    <small v-if="hasError('department_id')" class="p-error block mt-1">{{ getError('department_id') }}</small>
+                </div>
+                <div>
                     <label for="roles" class="block font-bold mb-3">{{ t('users.roles') }}</label>
                     <MultiSelect
                         id="roles"
@@ -119,6 +142,10 @@
                     />
                     <small v-if="submitted && (!user.roles || user.roles.length === 0)" class="text-red-500">Vai trò là bắt buộc</small>
                     <small v-if="hasError('roles')" class="p-error block mt-1">{{ t(getError('roles')) }}</small>
+                </div>
+                <div class="flex items-center gap-2">
+                    <Checkbox id="is_active" v-model="user.is_active" binary />
+                    <label for="is_active">Đang hoạt động</label>
                 </div>
                 <div v-if="!isEditing">
                     <label for="password" class="block font-bold mb-3">{{ t('users.password') }}</label>
@@ -216,6 +243,21 @@ import { useI18n } from '@/composables/useI18n';
 import { useFormValidation } from '@/composables/useFormValidation';
 import { usePermission } from '@/composables/usePermission';
 
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import Toolbar from 'primevue/toolbar';
+import Button from 'primevue/button';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
+import Checkbox from 'primevue/checkbox';
+import Badge from 'primevue/badge';
+import Tag from 'primevue/tag';
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
+import FileUpload from 'primevue/fileupload';
+
 // Define props
 const props = defineProps({
     users: {
@@ -223,6 +265,10 @@ const props = defineProps({
         default: () => []
     },
     roles: {
+        type: Array,
+        default: () => []
+    },
+    departments: {
         type: Array,
         default: () => []
     }
@@ -275,7 +321,7 @@ const formatDate = (dateString) => {
 };
 
 const resetForm = () => {
-    user.value = {};
+    user.value = { is_active: true };
     submitted.value = false;
     // Errors will be automatically cleared when the page re-renders
 };
@@ -303,6 +349,8 @@ const editUser = (userData) => {
     resetForm();
     user.value = {
         ...userData,
+        department_id: userData.department?.id || null,
+        is_active: userData.is_active !== undefined ? userData.is_active : true,
         roles: userData.roles ? userData.roles.map(role => role.id) : []
     };
     userDialog.value = true;
@@ -325,6 +373,8 @@ const saveUser = () => {
     const userData = {
         name: user.value.name,
         email: user.value.email,
+        department_id: user.value.department_id || null,
+        is_active: user.value.is_active !== undefined ? user.value.is_active : true,
         roles: user.value.roles,
     };
 

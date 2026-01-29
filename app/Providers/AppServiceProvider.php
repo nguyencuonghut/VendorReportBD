@@ -8,6 +8,10 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 use App\Policies\ActivityPolicy;
+use App\Models\VendorReport;
+use App\Policies\VendorReportPolicy;
+use App\Models\Department;
+use App\Policies\DepartmentPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,8 +31,10 @@ class AppServiceProvider extends ServiceProvider
         // Auth data is now shared via HandleInertiaRequests middleware
         // No need to share here anymore
 
-        // Register policy for Spatie Activity model (cannot auto-discover external package models)
+        // Register policies for models (auto-discovery or explicit)
         Gate::policy(Activity::class, ActivityPolicy::class);
+        Gate::policy(VendorReport::class, VendorReportPolicy::class);
+        Gate::policy(Department::class, DepartmentPolicy::class);
     }
 }
 

@@ -7,6 +7,8 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\VendorReportController;
+use App\Http\Controllers\DepartmentController;
 
 /*** Login Routes ***/
 Route::group(['middleware' => 'guest'], function () {
@@ -45,6 +47,17 @@ Route::group(['middleware' => 'auth'], function () {
     // Activity Log Routes - Authorization handled by ActivityPolicy
     Route::delete('activity-logs/clear', [ActivityLogController::class, 'clear'])->name('activity-logs.clear');
     Route::resource('activity-logs', ActivityLogController::class)->only(['index', 'show', 'destroy']);
+
+    // Department Routes - Authorization handled by DepartmentPolicy
+    Route::resource('departments', DepartmentController::class);
+
+    // Vendor Report Routes - Authorization handled by VendorReportPolicy
+    // Custom action routes must be defined before resource routes
+    Route::post('vendor-reports/{vendorReport}/submit', [VendorReportController::class, 'submit'])->name('vendor-reports.submit');
+    Route::post('vendor-reports/{vendorReport}/approve', [VendorReportController::class, 'approve'])->name('vendor-reports.approve');
+    Route::post('vendor-reports/{vendorReport}/reject', [VendorReportController::class, 'reject'])->name('vendor-reports.reject');
+    Route::post('vendor-reports/{vendorReport}/clone', [VendorReportController::class, 'clone'])->name('vendor-reports.clone');
+    Route::resource('vendor-reports', VendorReportController::class);
 
     // Backup Routes - Authorization handled by BackupPolicy
     Route::get('backup', [\App\Http\Controllers\BackupController::class, 'index'])->name('backup.index');

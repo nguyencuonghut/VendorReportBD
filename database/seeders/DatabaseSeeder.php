@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            DepartmentSeeder::class, // ⭐ Thêm đầu tiên
             RolesAndPermissionsSeeder::class,
             UserSeeder::class,
         ]);
