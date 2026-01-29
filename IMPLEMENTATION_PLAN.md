@@ -1,8 +1,92 @@
 # KẾ HOẠCH TRIỂN KHAI HỆ THỐNG QUẢN LÝ BÁO CÁO LỰA CHỌN NHÀ CUNG CẤP
 
 **Ngày tạo:** 29/01/2026  
+**Ngày cập nhật:** 29/01/2026  
 **Dự án:** Vendor Report Management System  
 **Framework:** Laravel 12 + Inertia.js + Vue 3 + PrimeVue 4
+
+---
+
+## 🎯 NGUYÊN TẮC QUAN TRỌNG
+
+### 1. ✅ **Môi trường DEV - Sửa Migration Trực Tiếp**
+- **KHÔNG** tạo migration mới để add column vào bảng có sẵn
+- **SỬA TRỰC TIẾP** vào file migration hiện có
+- Ví dụ: Thêm columns vào users → Sửa file `0001_01_01_000000_create_users_table.php`
+
+### 2. ✅ **Enum Labels từ Backend**
+- Backend return labels tiếng Việt qua Resource
+- Frontend **KHÔNG định nghĩa lại** enum constants
+- Pattern: Model có methods `getXxxLabel()`, `getXxxColor()`
+
+### 3. ✅ **CRUD Pattern theo Role Module**
+- Backend: FormRequest (Vietnamese messages) → Controller → Resource (with labels)
+- Frontend: Service pattern (RoleService.js) → Vue Component
+- **KHÔNG dùng composables**, chỉ dùng Services
+
+### 4. ✅ **Yearly Sequences - GLOBAL**
+- Sequence tăng GLOBAL cho tất cả phòng ban
+- Ví dụ: 2026/TM/024 → 2026/BT/025 → 2026/KSNB/026
+- Bảng yearly_sequences: **KHÔNG có department_id**
+
+### 5. ✅ **Department - KHÔNG SoftDeletes**
+- Chỉ dùng `is_active` để quản lý trạng thái
+- **KHÔNG dùng** `softDeletes()` cho bảng departments
+
+### 6. ✅ **Purchasing Admin - Chỉ Theo Dõi**
+- `purchasing_admin_id` trong vendor_reports chỉ để theo dõi
+- **KHÔNG nằm trong workflow** duyệt phiếu
+
+---
+
+## 📋 CHI TIẾT 5 WORKFLOWS
+
+### Workflow 1: NORMAL - Phiếu thường
+```
+Người tạo → Trưởng phòng → Kiểm soát nội bộ (chọn BGĐ) → Ban giám đốc
+```
+**Steps:**
+1. **DEPT_HEAD**: Trưởng phòng duyệt
+2. **INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn user trong role 'bod'
+3. **BOD**: Ban giám đốc duyệt
+
+### Workflow 2: SPECIAL_1 - Phiếu đặc biệt 1
+```
+Người tạo → Trưởng phòng → Kiểm soát nội bộ (chọn BGĐ 1) → BGĐ 1 (chọn BGĐ 2) → BGĐ 2
+```
+**Steps:**
+1. **DEPT_HEAD**: Trưởng phòng duyệt
+2. **INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ duyệt lần 1
+3. **BOD_1**: BGĐ duyệt lần 1 + chọn BGĐ duyệt lần 2
+4. **BOD_2**: BGĐ duyệt lần 2
+
+### Workflow 3: SPECIAL_2 - Phiếu đặc biệt 2
+```
+Người tạo → Trưởng phòng (chọn Khối mua hàng) → Khối mua hàng → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
+```
+**Steps:**
+1. **DEPT_HEAD**: Trưởng phòng duyệt + chọn user trong Khối mua hàng toàn quốc
+2. **NATIONAL_PURCHASING**: Khối mua hàng toàn quốc duyệt
+3. **INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ
+4. **BOD**: Ban giám đốc duyệt
+
+### Workflow 4: SPECIAL_3 - Phiếu đặc biệt 3
+```
+Người tạo → Trưởng phòng (chọn Ban kỹ thuật) → Ban kỹ thuật → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
+```
+**Steps:**
+1. **DEPT_HEAD**: Trưởng phòng duyệt + chọn user trong Ban kỹ thuật
+2. **TECH_BOARD**: Ban kỹ thuật duyệt
+3. **INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ
+4. **BOD**: Ban giám đốc duyệt
+
+### Workflow 5: URGENT - Phiếu gấp (Bỏ qua Kiểm soát nội bộ)
+```
+Người tạo → Trưởng phòng (tick gấp + chọn BGĐ) → BGĐ
+```
+**Steps:**
+1. **DEPT_HEAD**: Trưởng phòng duyệt + tick "Phiếu gấp" + chọn BGĐ
+2. **BOD**: Ban giám đốc duyệt (BỎ QUA kiểm soát nội bộ)
 
 ---
 
@@ -62,6 +146,7 @@ Schema::create('departments', function (Blueprint $table) {
     $table->foreignId('parent_id')->nullable()->constrained('departments')->nullOnDelete();
     $table->boolean('is_active')->default(true);
     $table->timestamps();
+    // ⚠️ KHÔNG dùng softDeletes() - chỉ dùng is_active
     
     $table->index('code');
     $table->index('is_active');
@@ -105,17 +190,17 @@ php artisan make:migration create_yearly_sequences_table
 ```php
 Schema::create('yearly_sequences', function (Blueprint $table) {
     $table->id();
-    $table->integer('year')->unique(); // Unique constraint: mỗi năm chỉ có 1 record
-    $table->integer('current_seq')->default(0); // Sequence global cho tất cả phòng ban
+    $table->integer('year')->unique(); // ⭐ GLOBAL: mỗi năm chỉ có 1 record
+    $table->integer('current_seq')->default(0); // ⭐ Sequence chung cho TẤT CẢ phòng ban
     $table->timestamps();
 });
 ```
 
 **Logic:**
-- Sequence là **GLOBAL** cho tất cả phòng ban
-- Ví dụ: 2026/TM/024, 2026/BT/025, 2026/KSNB/026
+- Sequence là **GLOBAL** cho tất cả phòng ban (KHÔNG có department_id)
+- Ví dụ: 2026/TM/024 → 2026/BT/025 → 2026/KSNB/026 (sequence tăng liên tục)
 - Năm mới → sequence reset về 1
-- Không cần `department_id` vì sequence chung
+- Code format: `YYYY/DEPT_CODE/SEQ` (DEPT_CODE từ bảng departments)
 
 **Checklist:**
 - [ ] Tạo bảng với unique constraint trên year
@@ -132,10 +217,10 @@ php artisan make:migration create_vendor_reports_table
 ```php
 Schema::create('vendor_reports', function (Blueprint $table) {
     $table->id();
-    $table->string('code')->unique()->nullable(); // YYYY/DEPT/SEQ
+    $table->string('code')->unique()->nullable(); // YYYY/DEPT/SEQ (GLOBAL sequence)
     $table->string('title');
     $table->enum('workflow_type', ['NORMAL', 'SPECIAL_1', 'SPECIAL_2', 'SPECIAL_3', 'URGENT']);
-    $table->foreignId('purchasing_admin_id')->nullable()->constrained('users')->nullOnDelete();
+    $table->foreignId('purchasing_admin_id')->nullable()->constrained('users')->nullOnDelete(); // ⚠️ CHỈ ĐỂ THEO DÕI, KHÔNG NẰM TRONG WORKFLOW
     $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
     $table->enum('status', ['DRAFT', 'SUBMITTED', 'IN_APPROVAL', 'APPROVED', 'REJECTED'])->default('DRAFT');
     $table->foreignId('current_step_id')->nullable()->constrained('vendor_report_approval_steps')->nullOnDelete();
@@ -245,7 +330,7 @@ php artisan make:model Department
 ```php
 class Department extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity; // ⚠️ KHÔNG dùng SoftDeletes
     
     protected $fillable = [
         'code', 'name', 'head_user_id', 'parent_id', 'is_active'
@@ -313,6 +398,79 @@ php artisan make:model VendorReport
 ```php
 class VendorReport extends Model
 {
+    use HasFactory, LogsActivity, SoftDeletes;
+    
+    protected $fillable = [
+        'code', 'title', 'workflow_type', 'purchasing_admin_id', 
+        'created_by', 'status', 'current_step_id', 'submitted_at', 
+        'approved_at', 'rejected_at', 'rejected_note', 'parent_id', 'root_id'
+    ];
+    
+    protected $casts = [
+        'workflow_type' => 'string',
+        'status' => 'string',
+        'submitted_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+    ];
+    
+    // ⭐ Enum Label Methods - Để Resource sử dụng
+    public function getWorkflowTypeLabel(): string
+    {
+        return match($this->workflow_type) {
+            'NORMAL' => 'Quy trình thông thường',
+            'SPECIAL_1' => 'Quy trình đặc biệt 1',
+            'SPECIAL_2' => 'Quy trình đặc biệt 2',
+            'SPECIAL_3' => 'Quy trình đặc biệt 3',
+            'URGENT' => 'Quy trình khẩn cấp',
+            default => $this->workflow_type,
+        };
+    }
+    
+    public function getStatusLabel(): string
+    {
+        return match($this->status) {
+            'DRAFT' => 'Nháp',
+            'SUBMITTED' => 'Đã gửi',
+            'IN_APPROVAL' => 'Đang duyệt',
+            'APPROVED' => 'Đã duyệt',
+            'REJECTED' => 'Từ chối',
+            default => $this->status,
+        };
+    }
+    
+    public function getStatusColor(): string
+    {
+        return match($this->status) {
+            'DRAFT' => 'info',
+            'SUBMITTED' => 'primary',
+            'IN_APPROVAL' => 'warning',
+            'APPROVED' => 'success',
+            'REJECTED' => 'danger',
+            default => 'secondary',
+        };
+    }
+    
+    // Relationships
+    public function creator() { return $this->belongsTo(User::class, 'created_by'); }
+    public function purchasingAdmin() { return $this->belongsTo(User::class, 'purchasing_admin_id'); }
+    public function currentStep() { return $this->belongsTo(VendorReportApprovalStep::class, 'current_step_id'); }
+    public function approvalSteps() { return $this->hasMany(VendorReportApprovalStep::class, 'report_id')->orderBy('step_order'); }
+    public function files() { return $this->hasMany(VendorReportFile::class, 'report_id'); }
+    public function parent() { return $this->belongsTo(VendorReport::class, 'parent_id'); }
+    public function root() { return $this->belongsTo(VendorReport::class, 'root_id'); }
+    public function children() { return $this->hasMany(VendorReport::class, 'parent_id'); }
+    
+    // Activity Log
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['code', 'title', 'workflow_type', 'status'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+}
+```
     use HasFactory, LogsActivity, SoftDeletes;
     
     protected $fillable = [

@@ -51,7 +51,8 @@
 - timestamps
 
 **Rules:**
-- Không xóa cứng nếu có user/phiếu → dùng is_active=false
+- **Chỉ dùng is_active, KHÔNG dùng softDeletes()**
+- Không xóa cứng nếu có user/phiếu → set is_active=false
 - code dùng để sinh mã phiếu
 
 ---
@@ -93,7 +94,7 @@
 - code (string, unique)
 - title (string)
 - workflow_type enum: NORMAL | SPECIAL_1 | SPECIAL_2 | SPECIAL_3 | URGENT
-- purchasing_admin_id (FK users)
+- purchasing_admin_id (FK users) ← **Chỉ để theo dõi, KHÔNG nằm trong workflow**
 - created_by (FK users)
 - status enum: DRAFT | SUBMITTED | IN_APPROVAL | APPROVED | REJECTED
 - current_step_id (FK vendor_report_approval_steps, nullable)
@@ -105,7 +106,53 @@
 
 ---
 
-### 3.2 Files
+### 3.2 Workflow Definitions (Chi tiết 5 luồng)
+
+#### 3.2.1 NORMAL - Phiếu thường
+```
+Người tạo → Trưởng phòng → Kiểm soát nội bộ (chọn BGĐ) → Ban giám đốc
+```
+- **Step 1 - DEPT_HEAD**: Trưởng phòng duyệt
+- **Step 2 - INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn user trong phòng BGĐ
+- **Step 3 - BOD**: BGĐ được chọn duyệt
+
+#### 3.2.2 SPECIAL_1 - Phiếu đặc biệt 1
+```
+Người tạo → Trưởng phòng → Kiểm soát nội bộ (chọn BGĐ 1) → BGĐ 1 (chọn BGĐ 2) → BGĐ 2
+```
+- **Step 1 - DEPT_HEAD**: Trưởng phòng duyệt
+- **Step 2 - INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ duyệt lần 1
+- **Step 3 - BOD_1**: BGĐ duyệt lần 1 + chọn BGĐ duyệt lần 2
+- **Step 4 - BOD_2**: BGĐ duyệt lần 2
+
+#### 3.2.3 SPECIAL_2 - Phiếu đặc biệt 2
+```
+Người tạo → Trưởng phòng (chọn Khối mua hàng) → Khối mua hàng → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
+```
+- **Step 1 - DEPT_HEAD**: Trưởng phòng duyệt + chọn user trong Khối mua hàng toàn quốc
+- **Step 2 - NATIONAL_PURCHASING**: Khối mua hàng toàn quốc duyệt
+- **Step 3 - INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ
+- **Step 4 - BOD**: BGĐ duyệt
+
+#### 3.2.4 SPECIAL_3 - Phiếu đặc biệt 3
+```
+Người tạo → Trưởng phòng (chọn Ban kỹ thuật) → Ban kỹ thuật → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
+```
+- **Step 1 - DEPT_HEAD**: Trưởng phòng duyệt + chọn user trong Ban kỹ thuật
+- **Step 2 - TECH_BOARD**: Ban kỹ thuật duyệt
+- **Step 3 - INTERNAL_CONTROL**: Kiểm soát nội bộ duyệt + chọn BGĐ
+- **Step 4 - BOD**: BGĐ duyệt
+
+#### 3.2.5 URGENT - Phiếu gấp (Bỏ qua Kiểm soát nội bộ)
+```
+Người tạo → Trưởng phòng (tick gấp + chọn BGĐ) → BGĐ
+```
+- **Step 1 - DEPT_HEAD**: Trưởng phòng duyệt + tick "Phiếu gấp" + chọn BGĐ
+- **Step 2 - BOD**: BGĐ duyệt (BỎ QUA kiểm soát nội bộ)
+
+---
+
+### 3.3 Files
 
 **Table: vendor_report_files**
 - id
@@ -125,19 +172,18 @@
 
 ---
 
-### 3.3 Sinh mã phiếu
+### 3.4 Sinh mã phiếu
 
 **Table: yearly_sequences**
 - id
-- year (int)
-- department_id (FK)
+- year (int, unique) ← **GLOBAL sequence, không có department_id**
 - current_seq (int)
-- unique(year, department_id)
 
 **Algorithm:**
-- Transaction + SELECT FOR UPDATE
-- Increment current_seq
+- Transaction + SELECT FOR UPDATE trên year
+- Increment current_seq (GLOBAL cho tất cả departments)
 - code = YYYY/DEPT_CODE/SEQ
+- **Ví dụ:** 2026/TM/024 → 2026/BT/025 → 2026/KSNB/026
 
 ---
 
@@ -160,11 +206,11 @@
 - timestamps
 
 ---
+Config File
 
-### 4.2 Workflow Definitions
+**File: `config/vendor_report_workflows.php`**
 
-File: `config/vendor_report_workflows.php`
-
+Chi tiết xem section 3.2 ở trên. Config này sẽ dùng để VendorReportWorkflowBuilder tự động tạo runtime steps khi submit phiếu.
 (chi tiết giống nội dung đã thống nhất trong trao đổi, dùng cho Copilot build runtime steps)
 
 ---
