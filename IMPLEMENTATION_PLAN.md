@@ -77,24 +77,22 @@ Schema::create('departments', function (Blueprint $table) {
 ---
 
 #### **Task 1.1.2: Update Users Table**
-```bash
-php artisan make:migration add_department_fields_to_users_table
-```
 
-**Nội dung:**
+**⚠️ LƯU Ý: Môi trường DEV - Sửa trực tiếp vào migration hiện có**
+
+**File:** `database/migrations/0001_01_01_000000_create_users_table.php`
+
+**Thêm vào bảng users:**
 ```php
-Schema::table('users', function (Blueprint $table) {
-    $table->foreignId('department_id')->nullable()->after('email')->constrained('departments')->nullOnDelete();
-    $table->boolean('is_active')->default(true)->after('password');
-    $table->timestamp('last_login_at')->nullable()->after('is_active');
-});
+$table->foreignId('department_id')->nullable()->after('email')->constrained('departments')->nullOnDelete();
+$table->boolean('is_active')->default(true)->after('password');
+$table->timestamp('last_login_at')->nullable()->after('is_active');
 ```
 
 **Checklist:**
-- [ ] Thêm department_id
-- [ ] Thêm is_active flag
-- [ ] Thêm last_login_at timestamp
-- [ ] Test migration
+- [ ] Sửa trực tiếp file migration users hiện có
+- [ ] Thêm department_id, is_active, last_login_at
+- [ ] Run migrate:fresh --seed để test
 
 ---
 
