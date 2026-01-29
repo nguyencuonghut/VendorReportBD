@@ -107,18 +107,20 @@ php artisan make:migration create_yearly_sequences_table
 ```php
 Schema::create('yearly_sequences', function (Blueprint $table) {
     $table->id();
-    $table->integer('year');
-    $table->foreignId('department_id')->constrained('departments')->cascadeOnDelete();
-    $table->integer('current_seq')->default(0);
+    $table->integer('year')->unique(); // Unique constraint: mỗi năm chỉ có 1 record
+    $table->integer('current_seq')->default(0); // Sequence global cho tất cả phòng ban
     $table->timestamps();
-    
-    $table->unique(['year', 'department_id']);
 });
 ```
 
+**Logic:**
+- Sequence là **GLOBAL** cho tất cả phòng ban
+- Ví dụ: 2026/TM/024, 2026/BT/025, 2026/KSNB/026
+- Năm mới → sequence reset về 1
+- Không cần `department_id` vì sequence chung
+
 **Checklist:**
-- [ ] Tạo bảng với unique constraint
-- [ ] Kiểm tra index
+- [ ] Tạo bảng với unique constraint trên year
 - [ ] Test migration
 
 ---
@@ -281,11 +283,26 @@ class Department extends Model
 php artisan make:model YearlySequence
 ```
 
+**Nội dung:**
+```php
+class YearlySequence extends Model
+{
+    use HasFactory;
+    
+    protected $fillable = ['year', 'current_seq'];
+    
+    protected $casts = [
+        'year' => 'integer',
+        'current_seq' => 'integer',
+    ];
+}
+```
+
 **Checklist:**
 - [ ] Tạo model
 - [ ] Fillable fields
-- [ ] Relationship với Department
-- [ ] Unique constraint validation
+- [ ] Casts
+- [ ] Unique constraint validation (year unique)
 
 ---
 
@@ -522,18 +539,49 @@ class VendorReportCodeGenerator
 {
     public function generate(Department $department): string
     {
-        // Transaction + SELECT FOR UPDATE
-        // YYYY/DEPT_CODE/SEQ
-        // Return: 2026/TM/001
+        return DB::transaction(function() use ($department) {
+            $year = date('Y');
+            
+            // Lock và lấy sequence của năm hiện tại
+            $sequence = YearlySequence::where('year', $year)
+                ->lockForUpdate() // SELECT FOR UPDATE - prevent race condition
+                ->first();
+            
+            // Nếu chưa có record cho năm này, tạo mới
+            if (!$sequence) {
+                $sequence = YearlySequence::create([
+                    'year' => $year,
+                    'current_seq' => 0
+                ]);
+            }
+            
+            // Tăng sequence
+            $sequence->increment('current_seq');
+            
+            // Format: YYYY/DEPT_CODE/SEQ (3 chữ số)
+            // Ví dụ: 2026/TM/024
+            return sprintf('%d/%s/%03d', 
+                $year,
+                strtoupper($department->code),
+                $sequence->current_seq
+            );
+        });
     }
 }
 ```
 
+**Logic:**
+- Sequence **GLOBAL** cho tất cả phòng ban
+- 2026/TM/024 → 2026/BT/025 → 2026/KSNB/026
+- Transaction + SELECT FOR UPDATE để tránh duplicate
+- Năm mới tự động tạo record mới với seq = 0
+
 **Checklist:**
 - [ ] Tạo service
 - [ ] Implement transaction logic
-- [ ] Test concurrent requests
+- [ ] Test concurrent requests (nhiều user cùng tạo phiếu)
 - [ ] Handle errors
+- [ ] Test year transition (chuyển năm)
 
 ---
 
