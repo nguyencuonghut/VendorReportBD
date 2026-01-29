@@ -90,7 +90,7 @@
                     <label for="name" class="block font-bold mb-3">{{ t('users.name') }}</label>
                     <InputText
                         id="name"
-                        v-model.trim="user.name"
+                        v-model="user.name"
                         required="true"
                         autofocus
                         :invalid="submitted && !user.name || hasError('name')"
@@ -103,7 +103,7 @@
                     <label for="email" class="block font-bold mb-3">{{ t('users.email') }}</label>
                     <InputText
                         id="email"
-                        v-model.trim="user.email"
+                        v-model="user.email"
                         required="true"
                         :invalid="submitted && !user.email || hasError('email')"
                         fluid
