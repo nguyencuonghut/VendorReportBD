@@ -98,13 +98,13 @@
                     <template #body="slotProps">
                         <div class="flex items-center gap-2">
                             <i class="pi pi-user text-blue-500"></i>
-                            <span>{{ slotProps.data.creator?.name }}</span>
+                            <span>{{ slotProps.data.creator?.data?.name || slotProps.data.creator?.name }}</span>
                         </div>
                     </template>
                 </Column>
                 <Column field="department" header="Phòng ban" style="min-width: 14rem">
                     <template #body="slotProps">
-                        {{ slotProps.data.department?.name }}
+                        {{ slotProps.data.creator?.data?.department?.name || slotProps.data.creator?.department?.name || slotProps.data.department?.name }}
                     </template>
                 </Column>
                 <Column field="created_at" header="Ngày tạo" sortable style="min-width: 12rem">
@@ -231,6 +231,14 @@ const props = defineProps({
     departments: {
         type: Array,
         default: () => []
+    },
+    workflows: {
+        type: Object,
+        default: () => ({})
+    },
+    statuses: {
+        type: Object,
+        default: () => ({})
     }
 });
 
@@ -250,21 +258,16 @@ const statusFilter = ref(null);
 const workflowTypeFilter = ref(null);
 const departmentFilter = ref(null);
 
-// Filter options
-const statusOptions = [
-    { label: 'Nháp', value: 'DRAFT' },
-    { label: 'Chờ phê duyệt', value: 'IN_APPROVAL' },
-    { label: 'Đã phê duyệt', value: 'APPROVED' },
-    { label: 'Từ chối', value: 'REJECTED' }
-];
+// Filter options from backend
+const statusOptions = Object.entries(props.statuses || {}).map(([value, label]) => ({
+    label,
+    value
+}));
 
-const workflowTypeOptions = [
-    { label: 'Thường', value: 'NORMAL' },
-    { label: 'Đặc biệt 1', value: 'SPECIAL_1' },
-    { label: 'Đặc biệt 2', value: 'SPECIAL_2' },
-    { label: 'Đặc biệt 3', value: 'SPECIAL_3' },
-    { label: 'Khẩn cấp', value: 'URGENT' }
-];
+const workflowTypeOptions = Object.entries(props.workflows || {}).map(([value, label]) => ({
+    label,
+    value
+}));
 
 // Filters for DataTable
 const filters = ref({

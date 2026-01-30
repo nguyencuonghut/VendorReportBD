@@ -21,8 +21,6 @@ class StoreVendorReportRequest extends FormRequest
     {
         $this->merge([
             'title' => is_string($this->title) ? trim($this->title) : $this->title,
-            'content' => is_string($this->content) ? trim($this->content) : $this->content,
-            'notes' => is_string($this->notes) ? trim($this->notes) : $this->notes,
         ]);
     }
 
@@ -37,6 +35,11 @@ class StoreVendorReportRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'workflow_type' => ['required', 'in:NORMAL,SPECIAL_1,SPECIAL_2,SPECIAL_3,URGENT'],
             'purchasing_admin_id' => ['nullable', 'exists:users,id'],
+            'report_image' => ['required', 'image', 'max:10240'], // 10MB max
+            'quotation_files' => ['required', 'array', 'min:1'],
+            'quotation_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:10240'],
+            'boq_files' => ['nullable', 'array'],
+            'boq_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:10240'],
         ];
     }
 
@@ -53,6 +56,17 @@ class StoreVendorReportRequest extends FormRequest
             'workflow_type.required' => 'Loại quy trình là bắt buộc',
             'workflow_type.in' => 'Loại quy trình không hợp lệ',
             'purchasing_admin_id.exists' => 'Người quản lý mua sắm không tồn tại',
+            'report_image.required' => 'Ảnh báo cáo là bắt buộc',
+            'report_image.image' => 'File ảnh báo cáo phải là định dạng hình ảnh',
+            'report_image.max' => 'Ảnh báo cáo không được vượt quá 10MB',
+            'quotation_files.required' => 'File báo giá là bắt buộc',
+            'quotation_files.min' => 'Phải có ít nhất 1 file báo giá',
+            'quotation_files.*.file' => 'File báo giá không hợp lệ',
+            'quotation_files.*.mimes' => 'File báo giá phải có định dạng: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG',
+            'quotation_files.*.max' => 'Mỗi file báo giá không được vượt quá 10MB',
+            'boq_files.*.file' => 'File BOQ không hợp lệ',
+            'boq_files.*.mimes' => 'File BOQ phải có định dạng: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG',
+            'boq_files.*.max' => 'Mỗi file BOQ không được vượt quá 10MB',
         ];
     }
 }

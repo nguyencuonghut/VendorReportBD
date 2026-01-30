@@ -21,8 +21,6 @@ class UpdateVendorReportRequest extends FormRequest
     {
         $this->merge([
             'title' => is_string($this->title) ? trim($this->title) : $this->title,
-            'content' => is_string($this->content) ? trim($this->content) : $this->content,
-            'notes' => is_string($this->notes) ? trim($this->notes) : $this->notes,
         ]);
     }
 

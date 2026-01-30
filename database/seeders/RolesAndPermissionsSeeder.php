@@ -44,48 +44,80 @@ class RolesAndPermissionsSeeder extends Seeder
             // Activity Log
             'view activity logs',
             'delete activity logs',
+
+            // Vendor Report Management
+            'view vendor reports',
+            'create vendor reports',
+            'edit vendor reports',
+            'delete vendor reports',
+            'submit vendor reports',
+            'approve vendor reports',
+            'reject vendor reports',
         ];
 
         foreach ($permissions as $permission) {
             Permission::create(['name' => $permission]);
         }
 
-        // Create roles and assign permissions
+        // Create workflow-specific roles based on vendor_report_system_design.md
 
-        // Super Admin - has all permissions
-        $superAdmin = Role::create(['name' => 'Super Admin']);
-        $superAdmin->givePermissionTo(Permission::all());
+        // Admin System - Full system administration
+        $adminSystem = Role::create(['name' => 'admin_system']);
+        $adminSystem->givePermissionTo(Permission::all());
 
-        // Admin - has most permissions except some critical ones
-        $admin = Role::create(['name' => 'Admin']);
-        $admin->givePermissionTo([
-            'view users',
-            'create users',
-            'edit users',
-            'view roles',
-            'view permissions',
-            'view backups',
-            'create backups',
+        // Requester - Can create and submit vendor reports
+        $requester = Role::create(['name' => 'requester']);
+        $requester->givePermissionTo([
+            'view vendor reports',
+            'create vendor reports',
+            'edit vendor reports',
+            'submit vendor reports',
             'view activity logs',
         ]);
 
-        // Manager - can manage users and backups
-        $manager = Role::create(['name' => 'Manager']);
-        $manager->givePermissionTo([
-            'view users',
-            'create users',
-            'edit users',
-            'view backups',
-            'create backups',
+        // Purchasing Admin - Monitor vendor reports (not in approval workflow)
+        $purchasingAdmin = Role::create(['name' => 'purchasing_admin']);
+        $purchasingAdmin->givePermissionTo([
+            'view vendor reports',
             'view activity logs',
         ]);
 
-        // User - basic permissions
-        $user = Role::create(['name' => 'User']);
-        $user->givePermissionTo([
+        // Internal Control - Approve and select BOD
+        $internalControl = Role::create(['name' => 'internal_control']);
+        $internalControl->givePermissionTo([
+            'view vendor reports',
+            'approve vendor reports',
+            'reject vendor reports',
             'view activity logs',
         ]);
 
-        $this->command->info('Roles and permissions created successfully!');
+        // National Purchasing - Approve in SPECIAL_2 workflow
+        $nationalPurchasing = Role::create(['name' => 'national_purchasing']);
+        $nationalPurchasing->givePermissionTo([
+            'view vendor reports',
+            'approve vendor reports',
+            'reject vendor reports',
+            'view activity logs',
+        ]);
+
+        // Tech Board - Approve in SPECIAL_3 workflow
+        $techBoard = Role::create(['name' => 'tech_board']);
+        $techBoard->givePermissionTo([
+            'view vendor reports',
+            'approve vendor reports',
+            'reject vendor reports',
+            'view activity logs',
+        ]);
+
+        // BOD (Ban Giám Đốc) - Final approval in most workflows
+        $bod = Role::create(['name' => 'bod']);
+        $bod->givePermissionTo([
+            'view vendor reports',
+            'approve vendor reports',
+            'reject vendor reports',
+            'view activity logs',
+        ]);
+
+        $this->command->info('Workflow-specific roles and permissions created successfully!');
     }
 }

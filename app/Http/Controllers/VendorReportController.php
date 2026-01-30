@@ -25,11 +25,54 @@ class VendorReportController extends Controller
     {
         $this->authorize('viewAny', VendorReport::class);
 
+        $user = auth()->user();
+
         $reports = VendorReport::query()
-            ->with(['creator', 'purchasingAdmin', 'currentStep', 'department'])
+            ->with(['creator.department', 'purchasingAdmin', 'currentStep'])
+            ->when(true, function($q) use ($user) {
+                // Admin system: xem tất cả
+                if ($user->hasRole('admin_system')) {
+                    return;
+                }
+
+                // Requester: chỉ xem phiếu của mình
+                if ($user->hasRole('requester')) {
+                    $q->where('created_by', $user->id);
+                    return;
+                }
+
+                // Purchasing Admin: xem phiếu được gán (trừ DRAFT)
+                if ($user->hasRole('purchasing_admin')) {
+                    $q->where('purchasing_admin_id', $user->id)
+                      ->where('status', '!=', 'DRAFT');
+                    return;
+                }
+
+                // Trưởng phòng: xem phiếu của phòng mình hoặc phiếu cần duyệt
+                if ($user->department_id && $user->department->head_user_id === $user->id) {
+                    $q->where(function($query) use ($user) {
+                        // Phiếu của nhân viên cùng phòng
+                        $query->whereHas('creator', fn($q) => $q->where('department_id', $user->department_id))
+                              // Hoặc phiếu cần mình duyệt
+                              ->orWhereHas('currentStep', fn($q) => $q->where('assignee_user_id', $user->id));
+                    });
+                    return;
+                }
+
+                // Approver roles: xem phiếu cần mình duyệt
+                if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
+                    $q->whereHas('currentStep', fn($query) => $query->where('assignee_user_id', $user->id));
+                    return;
+                }
+
+                // Mặc định: không xem gì
+                $q->whereRaw('1 = 0');
+            })
             ->when($request->status, fn($q, $status) => $q->where('status', $status))
             ->when($request->workflow_type, fn($q, $type) => $q->where('workflow_type', $type))
-            ->when($request->department_id, fn($q, $deptId) => $q->where('department_id', $deptId))
+            ->when($request->department_id, function($q, $deptId) {
+                $q->whereHas('creator.department', fn($query) => $query->where('id', $deptId));
+            })
             ->when($request->search, function($q, $search) {
                 $q->where(function($query) use ($search) {
                     $query->where('code', 'like', "%{$search}%")
@@ -46,6 +89,8 @@ class VendorReportController extends Controller
         return Inertia::render('VendorReports/Index', [
             'reports' => VendorReportResource::collection($reports)->resolve(),
             'departments' => $departments,
+            'workflows' => VendorReport::getWorkflowTypesWithLabels(),
+            'statuses' => VendorReport::getStatusLabels(),
             'filters' => $request->only(['status', 'workflow_type', 'department_id', 'search']),
         ]);
     }
@@ -57,12 +102,29 @@ class VendorReportController extends Controller
     {
         $this->authorize('create', VendorReport::class);
 
+        // Get users with purchasing_admin role
         $purchasingAdmins = \App\Models\User::role('purchasing_admin')
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
+        // Add current user if they have requester role
+        $currentUser = auth()->user();
+        if ($currentUser && $currentUser->hasRole('requester')) {
+            // Check if current user is not already in the list
+            if (!$purchasingAdmins->contains('id', $currentUser->id)) {
+                $purchasingAdmins->push([
+                    'id' => $currentUser->id,
+                    'name' => $currentUser->name,
+                    'email' => $currentUser->email,
+                ]);
+                // Re-sort by name
+                $purchasingAdmins = $purchasingAdmins->sortBy('name')->values();
+            }
+        }
+
         return Inertia::render('VendorReports/Create', [
+            'workflows' => VendorReport::getWorkflowTypesWithLabels(),
             'purchasingAdmins' => $purchasingAdmins,
         ]);
     }
@@ -78,15 +140,46 @@ class VendorReportController extends Controller
         $validated['created_by'] = auth()->id();
         $validated['status'] = 'DRAFT';
 
+        // Create report first (code will be generated on submit)
         $report = VendorReport::create($validated);
 
-        activity()
-            ->performedOn($report)
-            ->causedBy(auth()->user())
-            ->log('report_created');
+        // Handle file uploads
+        if ($request->hasFile('report_image')) {
+            $this->uploadFile($report, $request->file('report_image'), 'REPORT_IMAGE');
+        }
+
+        if ($request->hasFile('quotation_files')) {
+            foreach ($request->file('quotation_files') as $file) {
+                $this->uploadFile($report, $file, 'QUOTATION');
+            }
+        }
+
+        if ($request->hasFile('boq_files')) {
+            foreach ($request->file('boq_files') as $file) {
+                $this->uploadFile($report, $file, 'BOQ');
+            }
+        }
 
         return redirect()->route('vendor-reports.index')
             ->with('success', 'Tạo phiếu thành công');
+    }
+
+    /**
+     * Upload file for vendor report
+     */
+    private function uploadFile(VendorReport $report, $file, string $type): void
+    {
+        $path = $file->store('vendor-reports', 'private');
+
+        $report->files()->create([
+            'type' => $type,
+            'disk' => 'private',
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'uploaded_by' => auth()->id(),
+        ]);
     }
 
     /**
@@ -97,9 +190,8 @@ class VendorReportController extends Controller
         $this->authorize('view', $vendorReport);
 
         $vendorReport->load([
-            'creator',
+            'creator.department',
             'purchasingAdmin',
-            'department',
             'approvalSteps.assigneeUser',
             'approvalSteps.actedByUser',
             'files.uploader',
@@ -122,18 +214,63 @@ class VendorReportController extends Controller
         // Get selectable approvers if current step requires selection
         $selectableApprovers = [];
         if ($currentStep && $currentStep->requires_selection) {
-            $role = $currentStep->selection_role;
-            $selectableApprovers = \App\Models\User::role($role)
+            $roleKey = $currentStep->selection_role;
+
+            // Get users by role using Spatie role() query
+            $selectableApprovers = \App\Models\User::role($roleKey)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'email']);
         }
+
+        // Get files
+        $files = $vendorReport->files->map(function ($file) {
+            return [
+                'id' => $file->id,
+                'type' => $file->type,
+                'original_filename' => $file->original_name,
+                'file_size' => $file->size,
+                'created_at' => $file->created_at->toISOString(),
+            ];
+        });
+
+        // Get activities
+        $activityLabels = [
+            'created' => 'Tạo phiếu',
+            'report_created' => 'Tạo phiếu',
+            'updated' => 'Cập nhật phiếu',
+            'submitted' => 'Nộp phiếu',
+            'approved' => 'Phê duyệt',
+            'rejected' => 'Từ chối',
+            'report_cloned_from_rejected' => 'Sao chép từ phiếu bị từ chối',
+        ];
+
+        $activities = \Spatie\Activitylog\Models\Activity::where('subject_type', VendorReport::class)
+            ->where('subject_id', $vendorReport->id)
+            ->with('causer')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($activity) use ($activityLabels) {
+                return [
+                    'id' => $activity->id,
+                    'description' => $activity->description,
+                    'description_label' => $activityLabels[$activity->description] ?? $activity->description,
+                    'created_at' => $activity->created_at->toISOString(),
+                    'causer' => $activity->causer ? [
+                        'id' => $activity->causer->id,
+                        'name' => $activity->causer->name,
+                    ] : null,
+                    'properties' => $activity->properties ?? [],
+                ];
+            });
 
         return Inertia::render('VendorReports/Show', [
             'report' => new VendorReportResource($vendorReport),
             'approvalSteps' => $approvalSteps->resolve(),
             'currentStep' => $currentStep ? new \App\Http\Resources\VendorReportApprovalStepResource($currentStep) : null,
             'selectableApprovers' => $selectableApprovers,
+            'files' => $files,
+            'activities' => $activities,
             'canEdit' => $canEdit,
             'canSubmit' => $canSubmit,
             'canApprove' => $canApprove,
@@ -148,13 +285,30 @@ class VendorReportController extends Controller
     {
         $this->authorize('update', $vendorReport);
 
+        // Get users with purchasing_admin role
         $purchasingAdmins = \App\Models\User::role('purchasing_admin')
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
+        // Add current user if they have requester role
+        $currentUser = auth()->user();
+        if ($currentUser && $currentUser->hasRole('requester')) {
+            // Check if current user is not already in the list
+            if (!$purchasingAdmins->contains('id', $currentUser->id)) {
+                $purchasingAdmins->push([
+                    'id' => $currentUser->id,
+                    'name' => $currentUser->name,
+                    'email' => $currentUser->email,
+                ]);
+                // Re-sort by name
+                $purchasingAdmins = $purchasingAdmins->sortBy('name')->values();
+            }
+        }
+
         return Inertia::render('VendorReports/Edit', [
             'report' => new VendorReportResource($vendorReport),
+            'workflows' => VendorReport::getWorkflowTypesWithLabels(),
             'purchasingAdmins' => $purchasingAdmins,
         ]);
     }
@@ -297,5 +451,50 @@ class VendorReportController extends Controller
 
         return redirect()->route('vendor-reports.edit', $newReport)
             ->with('success', 'Tạo phiếu mới từ phiếu bị từ chối thành công');
+    }
+
+    /**
+     * View file (inline in browser)
+     */
+    public function viewFile($fileId)
+    {
+        $file = \App\Models\VendorReportFile::findOrFail($fileId);
+
+        // Check if user can view the related report
+        $this->authorize('view', $file->report);
+
+        // Check if file exists
+        if (!\Storage::disk('private')->exists($file->path)) {
+            abort(404, 'File không tồn tại');
+        }
+
+        $filePath = \Storage::disk('private')->path($file->path);
+        $mimeType = \Storage::disk('private')->mimeType($file->path);
+
+        return response()->file($filePath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $file->original_name . '"'
+        ]);
+    }
+
+    /**
+     * Download file
+     */
+    public function downloadFile($fileId)
+    {
+        $file = \App\Models\VendorReportFile::findOrFail($fileId);
+
+        // Check if user can view the related report
+        $this->authorize('view', $file->report);
+
+        // Check if file exists
+        if (!\Storage::disk($file->disk)->exists($file->path)) {
+            abort(404, 'File không tồn tại');
+        }
+
+        return \Storage::disk($file->disk)->download(
+            $file->path,
+            $file->original_name
+        );
     }
 }

@@ -1,6 +1,6 @@
 <template>
     <Head>
-        <title>Chi tiết phiếu: {{ props.report.code || props.report.title }}</title>
+        <title>Chi tiết phiếu: {{ reportData.code || reportData.title }}</title>
     </Head>
 
     <div>
@@ -8,11 +8,11 @@
         <div class="card mb-4">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="text-2xl font-bold mb-2">{{ props.report.title }}</h2>
-                    <p class="text-gray-600">Mã phiếu: <strong>{{ props.report.code || 'Chưa có mã' }}</strong></p>
+                    <h2 class="text-2xl font-bold mb-2">{{ reportData.title }}</h2>
+                    <p class="text-gray-600">Mã phiếu: <strong>{{ reportData.code || 'Chưa có mã' }}</strong></p>
                 </div>
                 <div class="flex gap-2 items-center">
-                    <Tag :value="props.report.status_label" :severity="props.report.status_color" class="text-lg px-4 py-2" />
+                    <Tag :value="reportData.status_label" :severity="reportData.status_color" class="text-lg px-4 py-2" />
                 </div>
             </div>
 
@@ -22,7 +22,7 @@
 
                 <!-- Edit button (only for DRAFT and creator) -->
                 <Button
-                    v-if="props.report.status === 'DRAFT' && canEdit"
+                    v-if="reportData.status === 'DRAFT' && canEdit"
                     label="Chỉnh sửa"
                     icon="pi pi-pencil"
                     @click="editReport"
@@ -30,7 +30,7 @@
 
                 <!-- Submit button (only for DRAFT and creator) -->
                 <Button
-                    v-if="props.report.status === 'DRAFT' && canSubmit"
+                    v-if="reportData.status === 'DRAFT' && canSubmit"
                     label="Nộp phiếu"
                     icon="pi pi-send"
                     severity="success"
@@ -39,7 +39,7 @@
 
                 <!-- Approve button (only for IN_APPROVAL and current approver) -->
                 <Button
-                    v-if="props.report.status === 'IN_APPROVAL' && canApprove"
+                    v-if="reportData.status === 'IN_APPROVAL' && canApprove"
                     label="Phê duyệt"
                     icon="pi pi-check"
                     severity="success"
@@ -48,7 +48,7 @@
 
                 <!-- Reject button (only for IN_APPROVAL and current approver) -->
                 <Button
-                    v-if="props.report.status === 'IN_APPROVAL' && canApprove"
+                    v-if="reportData.status === 'IN_APPROVAL' && canApprove"
                     label="Từ chối"
                     icon="pi pi-times"
                     severity="danger"
@@ -57,7 +57,7 @@
 
                 <!-- Clone button (only for REJECTED) -->
                 <Button
-                    v-if="props.report.status === 'REJECTED' && canClone"
+                    v-if="reportData.status === 'REJECTED' && canClone"
                     label="Sao chép phiếu"
                     icon="pi pi-copy"
                     @click="confirmClone"
@@ -65,111 +65,289 @@
             </div>
         </div>
 
-        <!-- Report Info Card -->
-        <div class="card mb-4">
-            <h3 class="text-xl font-bold mb-4">Thông tin phiếu</h3>
+        <!-- Tabs -->
+        <div class="card">
+            <Tabs value="0">
+                <TabList>
+                    <Tab value="0">Chi tiết</Tab>
+                    <Tab value="1">File báo giá</Tab>
+                    <Tab value="2">File BOQ/Đề nghị</Tab>
+                    <Tab value="3">Nhật ký</Tab>
+                </TabList>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <p class="text-gray-600 mb-1">Loại quy trình:</p>
-                    <Tag :value="props.report.workflow_type_label" severity="info" />
-                </div>
+                <TabPanels>
+                    <!-- Tab 1: Chi tiết phiếu -->
+                    <TabPanel value="0">
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold mb-4">Thông tin phiếu</h3>
 
-                <div>
-                    <p class="text-gray-600 mb-1">Người tạo:</p>
-                    <p class="font-semibold">{{ props.report.creator?.name }}</p>
-                </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-gray-600 mb-1">Loại quy trình:</p>
+                                <Tag :value="reportData.workflow_type_label" severity="info" />
+                            </div>
 
-                <div>
-                    <p class="text-gray-600 mb-1">Phòng ban:</p>
-                    <p class="font-semibold">{{ props.report.department?.name }}</p>
-                </div>
+                            <div>
+                                <p class="text-gray-600 mb-1">Người tạo:</p>
+                                <p class="font-semibold">{{ reportData.creator?.data?.name || reportData.creator?.name }}</p>
+                            </div>
 
-                <div v-if="props.report.purchasing_admin">
-                    <p class="text-gray-600 mb-1">Cán bộ mua hàng theo dõi:</p>
-                    <p class="font-semibold">{{ props.report.purchasing_admin.name }}</p>
-                </div>
+                            <div>
+                                <p class="text-gray-600 mb-1">Phòng ban:</p>
+                                <p class="font-semibold">{{ reportData.creator?.data?.department?.name || reportData.creator?.department?.name }}</p>
+                            </div>
 
-                <div>
-                    <p class="text-gray-600 mb-1">Ngày tạo:</p>
-                    <p class="font-semibold">{{ formatDate(props.report.created_at) }}</p>
-                </div>
+                            <div v-if="reportData.purchasing_admin">
+                                <p class="text-gray-600 mb-1">Cán bộ mua hàng theo dõi:</p>
+                                <p class="font-semibold">{{ reportData.purchasing_admin?.data?.name || reportData.purchasing_admin?.name }}</p>
+                            </div>
 
-                <div v-if="props.report.submitted_at">
-                    <p class="text-gray-600 mb-1">Ngày nộp:</p>
-                    <p class="font-semibold">{{ formatDate(props.report.submitted_at) }}</p>
-                </div>
-            </div>
+                            <div>
+                                <p class="text-gray-600 mb-1">Ngày tạo:</p>
+                                <p class="font-semibold">{{ formatDate(reportData.created_at) }}</p>
+                            </div>
 
-            <div class="mt-4" v-if="props.report.content">
-                <p class="text-gray-600 mb-2">Nội dung yêu cầu:</p>
-                <div class="p-4 bg-gray-50 rounded border">
-                    <p class="whitespace-pre-wrap">{{ props.report.content }}</p>
-                </div>
-            </div>
-
-            <div class="mt-4" v-if="props.report.notes">
-                <p class="text-gray-600 mb-2">Ghi chú:</p>
-                <div class="p-4 bg-gray-50 rounded border">
-                    <p class="whitespace-pre-wrap">{{ props.report.notes }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Approval Steps Card -->
-        <div class="card" v-if="props.approvalSteps && props.approvalSteps.length > 0">
-            <h3 class="text-xl font-bold mb-4">Tiến trình phê duyệt</h3>
-
-            <Timeline :value="props.approvalSteps" class="customized-timeline">
-                <template #marker="slotProps">
-                    <span class="flex items-center justify-center text-white rounded-full z-1 shadow-sm"
-                          :class="{
-                              'bg-green-500': slotProps.item.status === 'APPROVED',
-                              'bg-red-500': slotProps.item.status === 'REJECTED',
-                              'bg-blue-500': slotProps.item.status === 'PENDING',
-                              'bg-gray-400': slotProps.item.status === 'SKIPPED'
-                          }"
-                          style="width: 2.5rem; height: 2.5rem">
-                        <i class="pi" :class="{
-                            'pi-check': slotProps.item.status === 'APPROVED',
-                            'pi-times': slotProps.item.status === 'REJECTED',
-                            'pi-clock': slotProps.item.status === 'PENDING',
-                            'pi-minus': slotProps.item.status === 'SKIPPED'
-                        }"></i>
-                    </span>
-                </template>
-                <template #content="slotProps">
-                    <div class="p-4 bg-white rounded border" :class="{
-                        'border-green-300': slotProps.item.status === 'APPROVED',
-                        'border-red-300': slotProps.item.status === 'REJECTED',
-                        'border-blue-300': slotProps.item.status === 'PENDING',
-                        'border-gray-300': slotProps.item.status === 'SKIPPED'
-                    }">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-bold text-lg">{{ slotProps.item.step_key_label }}</h4>
-                            <Tag :value="slotProps.item.status_label" :severity="slotProps.item.status_color" />
+                            <div v-if="reportData.submitted_at">
+                                <p class="text-gray-600 mb-1">Ngày nộp:</p>
+                                <p class="font-semibold">{{ formatDate(reportData.submitted_at) }}</p>
+                            </div>
                         </div>
 
-                        <div v-if="slotProps.item.assignee_user" class="flex items-center gap-2 text-gray-700 mb-2">
-                            <i class="pi pi-user"></i>
-                            <span>{{ slotProps.item.assignee_user.name }}</span>
+                        <div class="mt-4" v-if="reportData.content">
+                            <p class="text-gray-600 mb-2">Nội dung yêu cầu:</p>
+                            <div class="p-4 bg-gray-50 rounded border">
+                                <p class="whitespace-pre-wrap">{{ reportData.content }}</p>
+                            </div>
                         </div>
 
-                        <div v-if="slotProps.item.approved_at || slotProps.item.rejected_at" class="text-sm text-gray-600">
-                            <i class="pi pi-calendar mr-1"></i>
-                            {{ formatDate(slotProps.item.approved_at || slotProps.item.rejected_at) }}
+                        <div class="mt-4" v-if="reportData.notes">
+                            <p class="text-gray-600 mb-2">Ghi chú:</p>
+                            <div class="p-4 bg-gray-50 rounded border">
+                                <p class="whitespace-pre-wrap">{{ reportData.notes }}</p>
+                            </div>
                         </div>
 
-                        <div v-if="slotProps.item.note" class="mt-2 p-2 bg-gray-50 rounded text-sm">
-                            <strong>Ghi chú:</strong> {{ slotProps.item.note }}
-                        </div>
-
-                        <div v-if="slotProps.item.rejection_note" class="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
-                            <strong>Lý do từ chối:</strong> {{ slotProps.item.rejection_note }}
+                        <!-- Report Images -->
+                        <div class="mt-6" v-if="reportImages.length > 0">
+                            <h4 class="text-lg font-bold mb-3">Báo cáo lựa chọn nhà cung cấp</h4>
+                            <div class="border rounded-lg overflow-hidden">
+                                <div v-for="(file, index) in reportImages" :key="file.id" class="relative">
+                                    <Image
+                                        :src="`/vendor-reports/files/${file.id}/view`"
+                                        :alt="'Báo cáo ' + (index + 1)"
+                                        preview
+                                        class="w-full"
+                                        imageClass="w-full object-contain max-h-[800px]"
+                                    />
+                                    <div class="absolute top-2 right-2 flex gap-2">
+                                        <Button
+                                            icon="pi pi-download"
+                                            severity="secondary"
+                                            rounded
+                                            size="small"
+                                            @click="downloadFile(file.id)"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </template>
-            </Timeline>
+
+                    <!-- Approval Steps -->
+                    <div v-if="props.approvalSteps && props.approvalSteps.length > 0">
+                        <h3 class="text-xl font-bold mb-4">Tiến trình phê duyệt</h3>
+
+                        <Timeline :value="props.approvalSteps" class="customized-timeline">
+                            <template #marker="slotProps">
+                                <span class="flex items-center justify-center text-white rounded-full z-1 shadow-sm"
+                                      :class="{
+                                          'bg-green-500': slotProps.item.status === 'APPROVED',
+                                          'bg-red-500': slotProps.item.status === 'REJECTED',
+                                          'bg-blue-500': slotProps.item.status === 'PENDING',
+                                          'bg-gray-400': slotProps.item.status === 'SKIPPED'
+                                      }"
+                                      style="width: 2.5rem; height: 2.5rem">
+                                    <i class="pi" :class="{
+                                        'pi-check': slotProps.item.status === 'APPROVED',
+                                        'pi-times': slotProps.item.status === 'REJECTED',
+                                        'pi-clock': slotProps.item.status === 'PENDING',
+                                        'pi-minus': slotProps.item.status === 'SKIPPED'
+                                    }"></i>
+                                </span>
+                            </template>
+                            <template #content="slotProps">
+                                <div class="p-4 bg-white rounded border" :class="{
+                                    'border-green-300': slotProps.item.status === 'APPROVED',
+                                    'border-red-300': slotProps.item.status === 'REJECTED',
+                                    'border-blue-300': slotProps.item.status === 'PENDING',
+                                    'border-gray-300': slotProps.item.status === 'SKIPPED'
+                                }">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h4 class="font-bold text-lg">{{ slotProps.item.step_key_label }}</h4>
+                                        <Tag :value="slotProps.item.status_label" :severity="slotProps.item.status_color" />
+                                    </div>
+
+                                    <div v-if="slotProps.item.assignee_user" class="flex items-center gap-2 text-gray-700 mb-2">
+                                        <i class="pi pi-user"></i>
+                                        <span>{{ slotProps.item.assignee_user.name }}</span>
+                                    </div>
+
+                                    <div v-if="slotProps.item.approved_at || slotProps.item.rejected_at" class="text-sm text-gray-600">
+                                        <i class="pi pi-calendar mr-1"></i>
+                                        {{ formatDate(slotProps.item.approved_at || slotProps.item.rejected_at) }}
+                                    </div>
+
+                                    <div v-if="slotProps.item.note" class="mt-2 p-2 bg-gray-50 rounded text-sm">
+                                        <strong>Ghi chú:</strong> {{ slotProps.item.note }}
+                                    </div>
+
+                                    <div v-if="slotProps.item.rejection_note" class="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
+                                        <strong>Lý do từ chối:</strong> {{ slotProps.item.rejection_note }}
+                                    </div>
+                                </div>
+                            </template>
+                        </Timeline>
+                    </div>
+                    </TabPanel>
+
+                    <!-- Tab 2: File báo giá -->
+                    <TabPanel value="1">
+                    <h3 class="text-xl font-bold mb-4">Danh sách file báo giá</h3>
+
+                    <DataTable v-if="quotationFiles.length > 0" :value="quotationFiles" stripedRows>
+                        <Column field="original_filename" header="Tên file" style="min-width: 300px">
+                            <template #body="slotProps">
+                                <div class="flex items-center gap-2">
+                                    <i class="pi pi-file text-blue-500"></i>
+                                    <span>{{ slotProps.data.original_filename }}</span>
+                                </div>
+                            </template>
+                        </Column>
+                        <Column field="file_size" header="Kích thước" style="width: 120px">
+                            <template #body="slotProps">
+                                {{ formatFileSize(slotProps.data.file_size) }}
+                            </template>
+                        </Column>
+                        <Column field="created_at" header="Ngày tạo" style="width: 150px">
+                            <template #body="slotProps">
+                                {{ formatDate(slotProps.data.created_at) }}
+                            </template>
+                        </Column>
+                        <Column header="Thao tác" style="width: 180px">
+                            <template #body="slotProps">
+                                <div class="flex gap-2">
+                                    <Button
+                                        label="Xem"
+                                        icon="pi pi-eye"
+                                        size="small"
+                                        severity="info"
+                                        variant="outlined"
+                                        @click="viewFile(slotProps.data.id)"
+                                    />
+                                    <Button
+                                        label="Tải"
+                                        icon="pi pi-download"
+                                        size="small"
+                                        severity="secondary"
+                                        variant="outlined"
+                                        @click="downloadFile(slotProps.data.id)"
+                                    />
+                                </div>
+                            </template>
+                        </Column>
+                    </DataTable>
+                    <div v-else class="text-center py-8 text-gray-500">
+                        <i class="pi pi-inbox text-4xl mb-3"></i>
+                        <p>Chưa có file báo giá</p>
+                    </div>
+                    </TabPanel>
+
+                    <!-- Tab 3: File BOQ/Đề nghị -->
+                    <TabPanel value="2">
+                    <h3 class="text-xl font-bold mb-4">File Đề nghị/BOQ</h3>
+                    <div>
+                        <DataTable v-if="boqFiles.length > 0" :value="boqFiles" stripedRows>
+                            <Column field="original_filename" header="Tên file" style="min-width: 300px">
+                                <template #body="slotProps">
+                                    <div class="flex items-center gap-2">
+                                        <i class="pi pi-file text-purple-500"></i>
+                                        <span>{{ slotProps.data.original_filename }}</span>
+                                    </div>
+                                </template>
+                            </Column>
+                            <Column field="file_size" header="Kích thước" style="width: 120px">
+                                <template #body="slotProps">
+                                    {{ formatFileSize(slotProps.data.file_size) }}
+                                </template>
+                            </Column>
+                            <Column field="created_at" header="Ngày tạo" style="width: 150px">
+                                <template #body="slotProps">
+                                    {{ formatDate(slotProps.data.created_at) }}
+                                </template>
+                            </Column>
+                            <Column header="Thao tác" style="width: 180px">
+                                <template #body="slotProps">
+                                    <div class="flex gap-2">
+                                        <Button
+                                            label="Xem"
+                                            icon="pi pi-eye"
+                                            size="small"
+                                            severity="info"
+                                            variant="outlined"
+                                            @click="viewFile(slotProps.data.id)"
+                                        />
+                                        <Button
+                                            label="Tải"
+                                            icon="pi pi-download"
+                                            size="small"
+                                            severity="secondary"
+                                            variant="outlined"
+                                            @click="downloadFile(slotProps.data.id)"
+                                        />
+                                    </div>
+                                </template>
+                            </Column>
+                        </DataTable>
+                        <div v-else class="text-center py-8 text-gray-500">
+                            <i class="pi pi-inbox text-4xl mb-3"></i>
+                            <p>Chưa có file BOQ</p>
+                        </div>
+                    </div>
+                    </TabPanel>
+
+                    <!-- Tab 4: Nhật ký -->
+                    <TabPanel value="3">
+                    <h3 class="text-xl font-bold mb-4">Lịch sử hoạt động</h3>
+
+                    <DataTable :value="props.activities" stripedRows paginator :rows="10" :rowsPerPageOptions="[5, 10, 20, 50]">
+                        <Column field="created_at" header="Thời gian" style="min-width: 160px">
+                            <template #body="slotProps">
+                                {{ formatDateTime(slotProps.data.created_at) }}
+                            </template>
+                        </Column>
+                        <Column field="causer.name" header="Người thực hiện" style="min-width: 150px">
+                            <template #body="slotProps">
+                                {{ slotProps.data.causer?.name || 'Hệ thống' }}
+                            </template>
+                        </Column>
+                        <Column field="description" header="Hoạt động" style="min-width: 200px">
+                            <template #body="slotProps">
+                                <Tag :value="slotProps.data.description_label || slotProps.data.description" severity="info" />
+                            </template>
+                        </Column>
+                        <Column field="properties" header="Chi tiết" style="min-width: 250px">
+                            <template #body="slotProps">
+                                <div v-if="slotProps.data.properties" class="text-sm">
+                                    <div v-for="(value, key) in slotProps.data.properties" :key="key" class="mb-1">
+                                        <strong>{{ key }}:</strong> {{ value }}
+                                    </div>
+                                </div>
+                            </template>
+                        </Column>
+                    </DataTable>
+                    </TabPanel>
+                </TabPanels>
+            </Tabs>
         </div>
 
         <!-- Submit Confirmation Dialog -->
@@ -267,6 +445,14 @@ import Timeline from 'primevue/timeline';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import TabPanels from 'primevue/tabpanels';
+import TabPanel from 'primevue/tabpanel';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import Image from 'primevue/image';
 
 // Define props
 const props = defineProps({
@@ -283,6 +469,14 @@ const props = defineProps({
         default: null
     },
     selectableApprovers: {
+        type: Array,
+        default: () => []
+    },
+    files: {
+        type: Array,
+        default: () => []
+    },
+    activities: {
         type: Array,
         default: () => []
     },
@@ -325,6 +519,20 @@ const rejectionForm = ref({
 });
 
 // Computed
+const reportData = computed(() => props.report?.data || props.report);
+
+const quotationFiles = computed(() => {
+    return props.files.filter(file => file.type === 'QUOTATION');
+});
+
+const boqFiles = computed(() => {
+    return props.files.filter(file => file.type === 'BOQ');
+});
+
+const reportImages = computed(() => {
+    return props.files.filter(file => file.type === 'REPORT_IMAGE');
+});
+
 const requiresSelection = computed(() => {
     return props.currentStep && props.currentStep.requires_selection && props.selectableApprovers.length > 0;
 });
@@ -341,12 +549,24 @@ const formatDate = (dateString) => {
     });
 };
 
+const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+};
+
 const goBack = () => {
     router.get('/vendor-reports');
 };
 
 const editReport = () => {
-    router.get(`/vendor-reports/${props.report.id}/edit`);
+    router.get(`/vendor-reports/${reportData.value.id}/edit`);
 };
 
 // Actions
@@ -355,7 +575,7 @@ const confirmSubmit = () => {
 };
 
 const submitReport = () => {
-    VendorReportService.submit(props.report.id, {
+    VendorReportService.submit(reportData.value.id, {
         onStart: () => {
             submitting.value = true;
         },
@@ -382,7 +602,7 @@ const approveReport = () => {
         return;
     }
 
-    VendorReportService.approve(props.report.id, approvalForm.value, {
+    VendorReportService.approve(reportData.value.id, approvalForm.value, {
         onStart: () => {
             approving.value = true;
         },
@@ -411,7 +631,7 @@ const rejectReport = () => {
         return;
     }
 
-    VendorReportService.reject(props.report.id, rejectionForm.value, {
+    VendorReportService.reject(reportData.value.id, rejectionForm.value, {
         onStart: () => {
             rejecting.value = true;
         },
@@ -430,7 +650,7 @@ const confirmClone = () => {
 };
 
 const cloneReport = () => {
-    VendorReportService.clone(props.report.id, {
+    VendorReportService.clone(reportData.value.id, {
         onStart: () => {
             cloning.value = true;
         },
@@ -442,6 +662,23 @@ const cloneReport = () => {
             cloning.value = false;
         }
     });
+};
+
+// Utility functions
+const formatFileSize = (bytes) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+};
+
+const viewFile = (fileId) => {
+    window.open(`/vendor-reports/files/${fileId}/view`, '_blank');
+};
+
+const downloadFile = (fileId) => {
+    window.location.href = `/vendor-reports/files/${fileId}/download`;
 };
 </script>
 

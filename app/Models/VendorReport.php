@@ -41,9 +41,9 @@ class VendorReport extends Model
     {
         return match($this->workflow_type) {
             'NORMAL' => 'Quy trình thông thường',
-            'SPECIAL_1' => 'Quy trình đặc biệt 1',
-            'SPECIAL_2' => 'Quy trình đặc biệt 2',
-            'SPECIAL_3' => 'Quy trình đặc biệt 3',
+            'SPECIAL_1' => 'Quy trình qua 2 BOD',
+            'SPECIAL_2' => 'Quy trình qua Khối Mua Hàng',
+            'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
             'URGENT' => 'Quy trình khẩn cấp',
             default => $this->workflow_type,
         };
@@ -71,6 +71,28 @@ class VendorReport extends Model
             'REJECTED' => 'danger',
             default => 'secondary',
         };
+    }
+
+    public static function getWorkflowTypesWithLabels(): array
+    {
+        return [
+            'NORMAL' => 'Quy trình thông thường',
+            'SPECIAL_1' => 'Quy trình qua 2 BOD',
+            'SPECIAL_2' => 'Quy trình qua Khối Mua Hàng',
+            'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
+            'URGENT' => 'Quy trình khẩn cấp',
+        ];
+    }
+
+    public static function getStatusLabels(): array
+    {
+        return [
+            'DRAFT' => 'Nháp',
+            'SUBMITTED' => 'Đã gửi',
+            'IN_APPROVAL' => 'Đang duyệt',
+            'APPROVED' => 'Đã duyệt',
+            'REJECTED' => 'Từ chối',
+        ];
     }
 
     // Relationships

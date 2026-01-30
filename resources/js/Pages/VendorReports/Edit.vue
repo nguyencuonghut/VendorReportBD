@@ -69,34 +69,6 @@
                 <small v-if="hasError('purchasing_admin_id')" class="p-error block mt-1">{{ getError('purchasing_admin_id') }}</small>
             </div>
 
-            <!-- Nội dung yêu cầu -->
-            <div>
-                <label for="content" class="block font-bold mb-3">Nội dung yêu cầu</label>
-                <Textarea
-                    id="content"
-                    v-model="form.content"
-                    rows="6"
-                    :invalid="hasError('content')"
-                    fluid
-                    placeholder="Nhập nội dung chi tiết của yêu cầu..."
-                />
-                <small v-if="hasError('content')" class="p-error block mt-1">{{ getError('content') }}</small>
-            </div>
-
-            <!-- Ghi chú -->
-            <div>
-                <label for="notes" class="block font-bold mb-3">Ghi chú</label>
-                <Textarea
-                    id="notes"
-                    v-model="form.notes"
-                    rows="3"
-                    :invalid="hasError('notes')"
-                    fluid
-                    placeholder="Ghi chú thêm nếu có..."
-                />
-                <small v-if="hasError('notes')" class="p-error block mt-1">{{ getError('notes') }}</small>
-            </div>
-
             <!-- Action buttons -->
             <div class="flex justify-end gap-3 pt-4 border-t">
                 <Button label="Hủy" icon="pi pi-times" severity="secondary" variant="outlined" @click="goBack" />
@@ -124,9 +96,13 @@ const props = defineProps({
         type: Object,
         required: true
     },
+    workflows: {
+        type: Object,
+        required: true
+    },
     purchasingAdmins: {
         type: Array,
-        default: () => []
+        required: true
     }
 });
 
@@ -137,28 +113,31 @@ const { errors, hasError, getError } = useFormValidation();
 const form = ref({
     title: props.report.title || '',
     workflow_type: props.report.workflow_type || null,
-    purchasing_admin_id: props.report.purchasing_admin_id || null,
-    content: props.report.content || '',
-    notes: props.report.notes || ''
+    purchasing_admin_id: props.report.purchasing_admin_id || null
 });
 
 const submitted = ref(false);
 const updating = ref(false);
 
-// Workflow type options
-const workflowTypeOptions = [
-    { label: 'Thường', value: 'NORMAL', description: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ' },
-    { label: 'Đặc biệt 1', value: 'SPECIAL_1', description: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ → BGĐ (lần 2)' },
-    { label: 'Đặc biệt 2', value: 'SPECIAL_2', description: 'Trưởng phòng → Kiểm soát nội bộ → Mua hàng quốc gia → BGĐ' },
-    { label: 'Đặc biệt 3', value: 'SPECIAL_3', description: 'Trưởng phòng → Kiểm soát nội bộ → Hội đồng kỹ thuật → BGĐ' },
-    { label: 'Khẩn cấp', value: 'URGENT', description: 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)' }
-];
+// Workflow type options from backend
+const workflowTypeOptions = Object.entries(props.workflows).map(([value, label]) => ({
+    label,
+    value
+}));
+
+// Workflow descriptions for display
+const workflowDescriptions = {
+    'NORMAL': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ',
+    'SPECIAL_1': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ 1 → BGĐ 2',
+    'SPECIAL_2': 'Trưởng phòng → Khối Mua Hàng → Kiểm soát nội bộ → BGĐ',
+    'SPECIAL_3': 'Trưởng phòng → Ban Kỹ thuật → Kiểm soát nội bộ → BGĐ',
+    'URGENT': 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)'
+};
 
 // Helper functions
 const getWorkflowDescription = (workflowType) => {
-    const option = workflowTypeOptions.find(opt => opt.value === workflowType);
-    return option ? option.description : '';
-};
+    return workflowDescriptions[workflowType] || '';
+};;
 
 const goBack = () => {
     router.get(`/vendor-reports/${props.report.id}`);

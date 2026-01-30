@@ -67,32 +67,116 @@
                 <small v-if="hasError('purchasing_admin_id')" class="p-error block mt-1">{{ getError('purchasing_admin_id') }}</small>
             </div>
 
-            <!-- Nội dung yêu cầu -->
+            <!-- Ảnh báo cáo -->
             <div>
-                <label for="content" class="block font-bold mb-3">Nội dung yêu cầu</label>
-                <Textarea
-                    id="content"
-                    v-model="form.content"
-                    rows="6"
-                    :invalid="hasError('content')"
-                    fluid
-                    placeholder="Nhập nội dung chi tiết của yêu cầu..."
-                />
-                <small v-if="hasError('content')" class="p-error block mt-1">{{ getError('content') }}</small>
+                <label class="block font-bold mb-3">Ảnh báo cáo <span class="text-red-500">*</span></label>
+                <div
+                    :key="editorKey"
+                    ref="pasteAreaRef"
+                    :contenteditable="isContentEditable"
+                    class="p-inputtext p-component p-editor-container"
+                    :class="{ 'has-content': imagePreviewSrc || (!showPlaceholder && pasteAreaRef?.innerText?.trim() !== '') }"
+                    style="min-height: 150px; border: 1px solid var(--surface-300); padding: 1rem; cursor: text; overflow: hidden;"
+                    @paste="handlePaste"
+                    @drop.prevent="handleDrop"
+                    @dragover.prevent
+                    @focus="handleFocus"
+                    @blur="handleBlur"
+                >
+                    <div v-if="!imagePreviewSrc && showPlaceholder" class="paste-content-wrapper">
+                        <p class="placeholder-text">Dán ảnh (Ctrl+V) hoặc kéo thả ảnh vào đây.</p>
+                    </div>
+                    <div v-else-if="imagePreviewSrc" class="paste-content-wrapper">
+                        <img :src="imagePreviewSrc" alt="Image Preview" class="pasted-image-preview" />
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-3" v-if="imagePreviewSrc">
+                    <i class="pi pi-image text-xl"></i>
+                    <span class="font-medium">Ảnh đã chọn</span>
+                    <span v-if="imageFile" class="text-color-secondary">{{ (imageFile.size / 1024).toFixed(2) }} KB ({{ imageFile.name }})</span>
+                    <Button label="Xóa ảnh" icon="pi pi-times" severity="danger" text size="small" class="ml-auto" @click="removeImage" />
+                </div>
+                <small v-if="hasError('report_image')" class="p-error block mt-1">{{ getError('report_image') }}</small>
+                <small v-if="submitted && !imagePreviewSrc" class="text-red-500 block mt-1">Ảnh báo cáo là bắt buộc</small>
             </div>
 
-            <!-- Ghi chú -->
+            <!-- File báo giá -->
             <div>
-                <label for="notes" class="block font-bold mb-3">Ghi chú</label>
-                <Textarea
-                    id="notes"
-                    v-model="form.notes"
-                    rows="3"
-                    :invalid="hasError('notes')"
-                    fluid
-                    placeholder="Ghi chú thêm nếu có..."
-                />
-                <small v-if="hasError('notes')" class="p-error block mt-1">{{ getError('notes') }}</small>
+                <label class="block font-bold mb-3">File báo giá <span class="text-red-500">*</span></label>
+                <div
+                    class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
+                    @drop.prevent="handleQuotationFilesDrop"
+                    @dragover.prevent
+                    @click="$refs.quotationFilesInput.click()"
+                >
+                    <i class="pi pi-cloud-upload text-4xl text-green-400 mb-2"></i>
+                    <p class="text-gray-600 mb-1">Kéo thả file báo giá vào đây hoặc click để chọn</p>
+                    <p class="text-sm text-gray-500">Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</p>
+                    <input
+                        type="file"
+                        ref="quotationFilesInput"
+                        @change="handleQuotationFilesSelect"
+                        multiple
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        class="hidden"
+                    />
+                </div>
+                <div v-if="uploadedQuotationFiles.length > 0" class="mt-4">
+                    <h4 class="font-semibold mb-2">File đã chọn:</h4>
+                    <div class="space-y-2">
+                        <div v-for="(file, index) in uploadedQuotationFiles" :key="index" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i :class="getFileIcon(file.type)" class="text-xl"></i>
+                                <div>
+                                    <p class="font-medium text-sm">{{ file.name }}</p>
+                                    <p class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</p>
+                                </div>
+                            </div>
+                            <Button icon="pi pi-times" text severity="danger" size="small" @click="removeQuotationFile(index)" />
+                        </div>
+                    </div>
+                </div>
+                <small v-if="hasError('quotation_files')" class="p-error block mt-1">{{ getError('quotation_files') }}</small>
+                <small v-if="submitted && uploadedQuotationFiles.length === 0" class="text-red-500 block mt-1">File báo giá là bắt buộc</small>
+            </div>
+
+            <!-- File BOQ -->
+            <div>
+                <label class="block font-bold mb-3">File Đề nghị/BOQ</label>
+                <div
+                    class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-green-400 transition-colors"
+                    @drop.prevent="handleBoqFilesDrop"
+                    @dragover.prevent
+                    @click="$refs.boqFilesInput.click()"
+                >
+                    <i class="pi pi-cloud-upload text-4xl text-green-400 mb-2"></i>
+                    <p class="text-gray-600 mb-1">Kéo thả file đề nghị/BOQ vào đây hoặc click để chọn</p>
+                    <p class="text-sm text-gray-500">Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</p>
+                    <input
+                        type="file"
+                        ref="boqFilesInput"
+                        @change="handleBoqFilesSelect"
+                        multiple
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        class="hidden"
+                    />
+                </div>
+                <div v-if="uploadedBoqFiles.length > 0" class="mt-4">
+                    <h4 class="font-semibold mb-2">File đã chọn:</h4>
+                    <div class="space-y-2">
+                        <div v-for="(file, index) in uploadedBoqFiles" :key="index" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i :class="getFileIcon(file.type)" class="text-xl"></i>
+                                <div>
+                                    <p class="font-medium text-sm">{{ file.name }}</p>
+                                    <p class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</p>
+                                </div>
+                            </div>
+                            <Button icon="pi pi-times" text severity="danger" size="small" @click="removeBoqFile(index)" />
+                        </div>
+                    </div>
+                </div>
+                <small v-if="hasError('boq_files')" class="p-error block mt-1">{{ getError('boq_files') }}</small>
             </div>
 
             <!-- Action buttons -->
@@ -106,51 +190,271 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
-import { VendorReportService } from '@/services';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { useFormValidation } from '@/composables/useFormValidation';
+import { useToast } from 'primevue/usetoast';
 
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
 
+const toast = useToast();
+
 // Define props
 const props = defineProps({
+    workflows: {
+        type: Object,
+        required: true
+    },
     purchasingAdmins: {
         type: Array,
-        default: () => []
+        required: true
     }
 });
 
 // Composables
 const { errors, hasError, getError } = useFormValidation();
 
-// Reactive data
-const form = ref({
+// Form data using Inertia's useForm
+const form = useForm({
     title: '',
     workflow_type: null,
     purchasing_admin_id: null,
-    content: '',
-    notes: ''
+    report_image: null,
+    quotation_files: [],
+    boq_files: []
 });
 
 const submitted = ref(false);
 const saving = ref(false);
 
-// Workflow type options
-const workflowTypeOptions = [
-    { label: 'Thường', value: 'NORMAL', description: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ' },
-    { label: 'Đặc biệt 1', value: 'SPECIAL_1', description: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ → BGĐ (lần 2)' },
-    { label: 'Đặc biệt 2', value: 'SPECIAL_2', description: 'Trưởng phòng → Kiểm soát nội bộ → Mua hàng quốc gia → BGĐ' },
-    { label: 'Đặc biệt 3', value: 'SPECIAL_3', description: 'Trưởng phòng → Kiểm soát nội bộ → Hội đồng kỹ thuật → BGĐ' },
-    { label: 'Khẩn cấp', value: 'URGENT', description: 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)' }
-];
+// Workflow type options from backend
+const workflowTypeOptions = Object.entries(props.workflows).map(([value, label]) => ({
+    label,
+    value
+}));
+
+// Workflow descriptions for display
+const workflowDescriptions = {
+    'NORMAL': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ',
+    'SPECIAL_1': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ 1 → BGĐ 2',
+    'SPECIAL_2': 'Trưởng phòng → Khối Mua Hàng → Kiểm soát nội bộ → BGĐ',
+    'SPECIAL_3': 'Trưởng phòng → Ban Kỹ thuật → Kiểm soát nội bộ → BGĐ',
+    'URGENT': 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)'
+};
+
+// Image paste/drop handling
+const pasteAreaRef = ref(null);
+const imagePreviewSrc = ref(null);
+const imageFile = ref(null);
+const showPlaceholder = ref(true);
+const isContentEditable = ref(true);
+const editorKey = ref(0);
+
+function handleFocus() {
+    showPlaceholder.value = false;
+    isContentEditable.value = true;
+}
+
+function handleBlur() {
+    if (!imagePreviewSrc.value && (!pasteAreaRef.value || pasteAreaRef.value.innerText.trim() === '')) {
+        showPlaceholder.value = true;
+    }
+}
+
+function handlePaste(e) {
+    e.preventDefault();
+    showPlaceholder.value = false;
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items || [];
+    for (const item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const file = item.getAsFile();
+            imageFile.value = file;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                imagePreviewSrc.value = ev.target.result;
+                form.report_image = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+    }
+}
+
+function handleDrop(e) {
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+        toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Chỉ chấp nhận file ảnh.', life: 2500 });
+        return;
+    }
+    imageFile.value = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        imagePreviewSrc.value = ev.target.result;
+        form.report_image = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeImage() {
+    form.report_image = null;
+    imagePreviewSrc.value = null;
+    imageFile.value = null;
+    showPlaceholder.value = true;
+    isContentEditable.value = true;
+    editorKey.value++;
+}
+
+// Quotation files handling
+const uploadedQuotationFiles = ref([]);
+const quotationFilesInput = ref(null);
+
+function handleQuotationFilesDrop(e) {
+    addQuotationFiles(Array.from(e.dataTransfer.files || []));
+}
+
+function handleQuotationFilesSelect(e) {
+    addQuotationFiles(Array.from(e.target.files || []));
+}
+
+function addQuotationFiles(files) {
+    const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'image/jpeg', 'image/jpg', 'image/png'
+    ];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'];
+    const valid = [];
+    const invalid = [];
+
+    files.forEach(f => {
+        let ok = false;
+        const ext = f.name && f.name.lastIndexOf('.') !== -1 ? f.name.slice(f.name.lastIndexOf('.')).toLowerCase() : '';
+        if (allowedTypes.includes(f.type)) {
+            ok = true;
+        } else if (
+            (f.type === 'application/octet-stream' || f.type === '' || f.type.startsWith('application/'))
+            && allowedExtensions.includes(ext)
+        ) {
+            ok = true;
+        }
+        if (ok) {
+            valid.push(f);
+        } else {
+            invalid.push(f);
+        }
+    });
+
+    if (invalid.length > 0) {
+        toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Một số file không được hỗ trợ và đã bị bỏ qua.', life: 2500 });
+    }
+
+    uploadedQuotationFiles.value.push(...valid);
+    form.quotation_files = [...uploadedQuotationFiles.value];
+}
+
+function removeQuotationFile(index) {
+    uploadedQuotationFiles.value.splice(index, 1);
+    form.quotation_files = [...uploadedQuotationFiles.value];
+}
+
+// BOQ files handling
+const uploadedBoqFiles = ref([]);
+const boqFilesInput = ref(null);
+
+function handleBoqFilesDrop(e) {
+    addBoqFiles(Array.from(e.dataTransfer.files || []));
+}
+
+function handleBoqFilesSelect(e) {
+    addBoqFiles(Array.from(e.target.files || []));
+}
+
+function addBoqFiles(files) {
+    const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'image/jpeg', 'image/jpg', 'image/png'
+    ];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'];
+    const valid = [];
+    const invalid = [];
+
+    files.forEach(f => {
+        let ok = false;
+        const ext = f.name && f.name.lastIndexOf('.') !== -1 ? f.name.slice(f.name.lastIndexOf('.')).toLowerCase() : '';
+        if (allowedTypes.includes(f.type)) {
+            ok = true;
+        } else if (
+            (f.type === 'application/octet-stream' || f.type === '' || f.type.startsWith('application/'))
+            && allowedExtensions.includes(ext)
+        ) {
+            ok = true;
+        }
+        if (ok) {
+            valid.push(f);
+        } else {
+            invalid.push(f);
+        }
+    });
+
+    if (invalid.length > 0) {
+        toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Một số file không được hỗ trợ và đã bị bỏ qua.', life: 2500 });
+    }
+
+    uploadedBoqFiles.value.push(...valid);
+    form.boq_files = [...uploadedBoqFiles.value];
+}
+
+function removeBoqFile(index) {
+    uploadedBoqFiles.value.splice(index, 1);
+    form.boq_files = [...uploadedBoqFiles.value];
+}
 
 // Helper functions
+function getFileIcon(mime) {
+    const map = {
+        'application/pdf': 'pi pi-file-pdf text-red-500',
+        'application/msword': 'pi pi-file-word text-blue-500',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'pi pi-file-word text-blue-500',
+        'application/vnd.ms-excel': 'pi pi-file-excel text-green-500',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'pi pi-file-excel text-green-500',
+        'image/jpeg': 'pi pi-image text-purple-500',
+        'image/jpg': 'pi pi-image text-purple-500',
+        'image/png': 'pi pi-image text-purple-500',
+    };
+    return map[mime] || 'pi pi-file';
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function dataURLtoBlob(dataurl) {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    const len = bstr.length;
+    const u8 = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        u8[i] = bstr.charCodeAt(i);
+    }
+    return new Blob([u8], { type: mime });
+}
+
 const getWorkflowDescription = (workflowType) => {
-    const option = workflowTypeOptions.find(opt => opt.value === workflowType);
-    return option ? option.description : '';
+    return workflowDescriptions[workflowType] || '';
 };
 
 const goBack = () => {
@@ -161,31 +465,127 @@ const saveReport = () => {
     submitted.value = true;
 
     // Basic client-side validation
-    if (!form.value.title || !form.value.workflow_type) {
+    if (!form.title || !form.workflow_type) {
+        return;
+    }
+
+    // Validate report image (required)
+    if (!form.report_image) {
+        toast.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Ảnh báo cáo là bắt buộc',
+            life: 3000
+        });
+        return;
+    }
+
+    // Validate quotation files (required)
+    if (!form.quotation_files || form.quotation_files.length === 0) {
+        toast.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'File báo giá là bắt buộc',
+            life: 3000
+        });
         return;
     }
 
     saving.value = true;
 
-    const reportData = {
-        title: form.value.title,
-        workflow_type: form.value.workflow_type,
-        purchasing_admin_id: form.value.purchasing_admin_id || null,
-        content: form.value.content || null,
-        notes: form.value.notes || null
-    };
+    // Check if we need multipart form data
+    const hasImage = typeof form.report_image === 'string' && form.report_image.startsWith('data:image');
+    const hasQuotationFiles = form.quotation_files.length > 0;
+    const hasBoqFiles = form.boq_files.length > 0;
+    const needsMultipart = hasImage || hasQuotationFiles || hasBoqFiles;
 
-    VendorReportService.store(reportData, {
-        onSuccess: () => {
-            saving.value = false;
-            // Backend will redirect to index or show page
-        },
-        onError: () => {
-            saving.value = false;
-        }
-    });
+    if (needsMultipart) {
+        form
+            .transform((data) => {
+                const formData = {
+                    title: data.title,
+                    workflow_type: data.workflow_type,
+                    purchasing_admin_id: data.purchasing_admin_id || null,
+                    quotation_files: Array.isArray(data.quotation_files) ? data.quotation_files : [],
+                    boq_files: Array.isArray(data.boq_files) ? data.boq_files : [],
+                };
+
+                if (typeof data.report_image === 'string' && data.report_image.startsWith('data:image')) {
+                    formData.report_image = dataURLtoBlob(data.report_image);
+                } else if (data.report_image instanceof File) {
+                    formData.report_image = data.report_image;
+                }
+
+                return formData;
+            })
+            .post('/vendor-reports', {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    saving.value = false;
+                },
+                onError: (errors) => {
+                    saving.value = false;
+                    submitted.value = true;
+                },
+            });
+    } else {
+        form.post('/vendor-reports', {
+            preserveScroll: true,
+            onSuccess: () => {
+                saving.value = false;
+            },
+            onError: () => {
+                saving.value = false;
+                submitted.value = true;
+            },
+        });
+    }
 };
 </script>
 
 <style scoped>
+.paste-content-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 140px;
+    width: 100%;
+    text-align: center;
+    color: var(--text-color-secondary);
+    font-style: italic;
+    background: var(--surface-100);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.pasted-image-preview {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    margin: auto;
+    object-fit: contain;
+}
+
+.p-editor-container {
+    border: 1px solid var(--surface-300);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    cursor: text;
+    min-height: 150px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.p-editor-container.has-content {
+    background-color: var(--surface-0);
+}
+
+.placeholder-text {
+    margin: 0;
+}
 </style>

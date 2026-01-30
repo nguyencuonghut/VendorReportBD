@@ -21,13 +21,47 @@ class VendorReportPolicy
      */
     public function view(User $user, VendorReport $vendorReport): bool
     {
-        // Creator, purchasing admin, approver (current step), hoặc admin
-        return $user->is_active && (
-            $user->id === $vendorReport->created_by ||
-            $user->id === $vendorReport->purchasing_admin_id ||
-            $this->isCurrentApprover($user, $vendorReport) ||
-            $user->hasRole('admin_system')
-        );
+        if (!$user->is_active) {
+            return false;
+        }
+
+        // Admin system: xem tất cả
+        if ($user->hasRole('admin_system')) {
+            return true;
+        }
+
+        // Requester: chỉ xem phiếu của mình
+        if ($user->hasRole('requester') && $user->id === $vendorReport->created_by) {
+            return true;
+        }
+
+        // Purchasing Admin: xem các phiếu được gán (trừ DRAFT)
+        if ($user->hasRole('purchasing_admin') &&
+            $user->id === $vendorReport->purchasing_admin_id &&
+            $vendorReport->status !== 'DRAFT') {
+            return true;
+        }
+
+        // Trưởng phòng: xem phiếu của nhân viên trong phòng và phiếu cần mình duyệt
+        if ($this->isDepartmentHead($user)) {
+            // Xem phiếu của nhân viên trong phòng
+            if ($this->isReportFromSameDepartment($user, $vendorReport)) {
+                return true;
+            }
+            // Hoặc phiếu cần mình duyệt
+            if ($this->isCurrentApprover($user, $vendorReport)) {
+                return true;
+            }
+        }
+
+        // Approver roles: xem phiếu cần mình duyệt
+        if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
+            if ($this->isCurrentApprover($user, $vendorReport)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -129,5 +163,31 @@ class VendorReportPolicy
         $currentStep = $vendorReport->currentStep;
 
         return $currentStep && $currentStep->assignee_user_id === $user->id;
+    }
+
+    /**
+     * Helper: Kiểm tra user có phải trưởng phòng không
+     */
+    private function isDepartmentHead(User $user): bool
+    {
+        if (!$user->department_id) {
+            return false;
+        }
+
+        $department = $user->department;
+        return $department && $department->head_user_id === $user->id;
+    }
+
+    /**
+     * Helper: Kiểm tra phiếu có từ cùng phòng ban với user không
+     */
+    private function isReportFromSameDepartment(User $user, VendorReport $vendorReport): bool
+    {
+        if (!$user->department_id) {
+            return false;
+        }
+
+        $creator = $vendorReport->creator;
+        return $creator && $creator->department_id === $user->department_id;
     }
 }

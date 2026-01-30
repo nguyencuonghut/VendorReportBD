@@ -5,9 +5,9 @@
  *
  * 5 loại workflows:
  * 1. NORMAL - Phiếu thông thường
- * 2. SPECIAL_1 - Phiếu đặc biệt 1
- * 3. SPECIAL_2 - Phiếu đặc biệt 2
- * 4. SPECIAL_3 - Phiếu đặc biệt 3
+ * 2. SPECIAL_1 - Quy trình qua 2 BOD
+ * 3. SPECIAL_2 - Quy trình qua Khối Mua Hàng
+ * 4. SPECIAL_3 - Quy trình qua Ban Kỹ thuật
  * 5. URGENT - Phiếu gấp (bỏ qua Kiểm soát nội bộ)
  */
 
@@ -34,7 +34,7 @@ return [
     ],
 
     /**
-     * SPECIAL_1 - Phiếu đặc biệt 1
+     * SPECIAL_1 - Quy trình qua 2 BOD
      * Luồng: Người tạo → Trưởng phòng → Kiểm soát nội bộ (chọn BGĐ 1) → BGĐ 1 (chọn BGĐ 2) → BGĐ 2
      */
     'SPECIAL_1' => [
@@ -59,7 +59,7 @@ return [
     ],
 
     /**
-     * SPECIAL_2 - Phiếu đặc biệt 2
+     * SPECIAL_2 - Quy trình qua Khối Mua Hàng
      * Luồng: Người tạo → Trưởng phòng (chọn Khối mua hàng) → Khối mua hàng → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
      */
     'SPECIAL_2' => [
@@ -84,7 +84,7 @@ return [
     ],
 
     /**
-     * SPECIAL_3 - Phiếu đặc biệt 3
+     * SPECIAL_3 - Quy trình qua Ban Kỹ thuật
      * Luồng: Người tạo → Trưởng phòng (chọn Ban kỹ thuật) → Ban kỹ thuật → Kiểm soát nội bộ (chọn BGĐ) → BGĐ
      */
     'SPECIAL_3' => [
