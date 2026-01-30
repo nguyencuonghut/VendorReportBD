@@ -24,6 +24,7 @@
                 <Button
                     v-if="reportData.status === 'DRAFT' && canEdit"
                     label="Chỉnh sửa"
+                    severity="warn"
                     icon="pi pi-pencil"
                     @click="editReport"
                 />
@@ -98,7 +99,7 @@
                             </div>
 
                             <div v-if="reportData.purchasing_admin">
-                                <p class="text-gray-600 mb-1">Cán bộ mua hàng theo dõi:</p>
+                                <p class="text-gray-600 mb-1">Admin mua hàng:</p>
                                 <p class="font-semibold">{{ reportData.purchasing_admin?.data?.name || reportData.purchasing_admin?.name }}</p>
                             </div>
 

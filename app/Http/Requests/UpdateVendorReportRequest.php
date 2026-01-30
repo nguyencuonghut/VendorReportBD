@@ -35,6 +35,13 @@ class UpdateVendorReportRequest extends FormRequest
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'workflow_type' => ['sometimes', 'required', 'in:NORMAL,SPECIAL_1,SPECIAL_2,SPECIAL_3,URGENT'],
             'purchasing_admin_id' => ['nullable', 'exists:users,id'],
+            'report_image' => ['nullable', 'image', 'max:10240'], // 10MB max, optional on update
+            'quotation_files' => ['nullable', 'array'],
+            'quotation_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:10240'],
+            'boq_files' => ['nullable', 'array'],
+            'boq_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:10240'],
+            'delete_files' => ['nullable', 'array'],
+            'delete_files.*' => ['integer', 'exists:vendor_report_files,id'],
         ];
     }
 
@@ -51,6 +58,14 @@ class UpdateVendorReportRequest extends FormRequest
             'workflow_type.required' => 'Loại quy trình là bắt buộc',
             'workflow_type.in' => 'Loại quy trình không hợp lệ',
             'purchasing_admin_id.exists' => 'Người quản lý mua sắm không tồn tại',
+            'report_image.image' => 'File ảnh báo cáo phải là định dạng hình ảnh',
+            'report_image.max' => 'Ảnh báo cáo không được vượt quá 10MB',
+            'quotation_files.*.file' => 'File báo giá không hợp lệ',
+            'quotation_files.*.mimes' => 'File báo giá phải có định dạng: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG',
+            'quotation_files.*.max' => 'Mỗi file báo giá không được vượt quá 10MB',
+            'boq_files.*.file' => 'File BOQ không hợp lệ',
+            'boq_files.*.mimes' => 'File BOQ phải có định dạng: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG',
+            'boq_files.*.max' => 'Mỗi file BOQ không được vượt quá 10MB',
         ];
     }
 }

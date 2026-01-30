@@ -9,6 +9,7 @@ use App\Http\Resources\VendorReportResource;
 use App\Services\VendorReportSubmissionService;
 use App\Services\VendorReportApprovalService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class VendorReportController extends Controller
@@ -29,7 +30,18 @@ class VendorReportController extends Controller
 
         $reports = VendorReport::query()
             ->with(['creator.department', 'purchasingAdmin', 'currentStep'])
-            ->when(true, function($q) use ($user) {
+            ->when($request->filter === 'my-reports', function($q) use ($user) {
+                // Filter: Phiếu của tôi - chỉ xem phiếu mình tạo
+                $q->where('created_by', $user->id);
+            })
+            ->when($request->filter === 'pending-approval', function($q) use ($user) {
+                // Filter: Chờ phê duyệt - phiếu đang chờ mình duyệt
+                $q->where('status', 'IN_APPROVAL')
+                  ->whereHas('currentStep', fn($query) => $query->where('assignee_user_id', $user->id));
+            })
+            ->when(!$request->filter, function($q) use ($user) {
+                // Không có filter: áp dụng logic phân quyền mặc định
+
                 // Admin system: xem tất cả
                 if ($user->hasRole('admin_system')) {
                     return;
@@ -91,7 +103,7 @@ class VendorReportController extends Controller
             'departments' => $departments,
             'workflows' => VendorReport::getWorkflowTypesWithLabels(),
             'statuses' => VendorReport::getStatusLabels(),
-            'filters' => $request->only(['status', 'workflow_type', 'department_id', 'search']),
+            'filters' => $request->only(['filter', 'status', 'workflow_type', 'department_id', 'search']),
         ]);
     }
 
@@ -285,6 +297,9 @@ class VendorReportController extends Controller
     {
         $this->authorize('update', $vendorReport);
 
+        // Load files relationship
+        $vendorReport->load('files');
+
         // Get users with purchasing_admin role
         $purchasingAdmins = \App\Models\User::role('purchasing_admin')
             ->where('is_active', true)
@@ -320,14 +335,52 @@ class VendorReportController extends Controller
     {
         $this->authorize('update', $vendorReport);
 
-        $vendorReport->update($request->validated());
+        $validated = $request->validated();
+
+        // Update basic fields
+        $vendorReport->update($validated);
+
+        // Handle file deletions
+        if ($request->has('delete_files') && is_array($request->delete_files)) {
+            foreach ($request->delete_files as $fileId) {
+                $file = $vendorReport->files()->find($fileId);
+                if ($file) {
+                    Storage::disk($file->disk)->delete($file->path);
+                    $file->delete();
+                }
+            }
+        }
+
+        // Handle file uploads
+        if ($request->hasFile('report_image')) {
+            // Delete old report image
+            $oldImage = $vendorReport->files()->where('type', 'REPORT_IMAGE')->first();
+            if ($oldImage) {
+                Storage::disk($oldImage->disk)->delete($oldImage->path);
+                $oldImage->delete();
+            }
+            // Upload new image
+            $this->uploadFile($vendorReport, $request->file('report_image'), 'REPORT_IMAGE');
+        }
+
+        if ($request->hasFile('quotation_files')) {
+            foreach ($request->file('quotation_files') as $file) {
+                $this->uploadFile($vendorReport, $file, 'QUOTATION');
+            }
+        }
+
+        if ($request->hasFile('boq_files')) {
+            foreach ($request->file('boq_files') as $file) {
+                $this->uploadFile($vendorReport, $file, 'BOQ');
+            }
+        }
 
         activity()
             ->performedOn($vendorReport)
             ->causedBy(auth()->user())
             ->log('report_updated');
 
-        return redirect()->route('vendor-reports.index')
+        return redirect()->route('vendor-reports.show', $vendorReport)
             ->with('success', 'Cập nhật phiếu thành công');
     }
 

@@ -48,16 +48,16 @@
                 </div>
             </div>
 
-            <!-- Cán bộ mua hàng theo dõi -->
+            <!-- Admin mua hàng -->
             <div>
-                <label for="purchasing_admin_id" class="block font-bold mb-3">Cán bộ mua hàng theo dõi</label>
+                <label for="purchasing_admin_id" class="block font-bold mb-3">Admin mua hàng</label>
                 <Select
                     id="purchasing_admin_id"
                     v-model="form.purchasing_admin_id"
                     :options="props.purchasingAdmins"
                     optionLabel="name"
                     optionValue="id"
-                    placeholder="Chọn cán bộ mua hàng"
+                    placeholder="Chọn admin mua hàng"
                     :invalid="hasError('purchasing_admin_id')"
                     fluid
                     filter

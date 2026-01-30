@@ -65,16 +65,41 @@ function itemClick(event, item) {
 }
 
 function isActiveRoute(routePath) {
-    const currentUrl = $page.url.split('?')[0]; // Remove query params
+    const currentUrl = $page.url;
+    const currentPath = currentUrl.split('?')[0];
 
-    // Exact match
-    if (currentUrl === routePath) {
+    // Extract query params from both current URL and route path
+    const currentParams = new URLSearchParams(currentUrl.includes('?') ? currentUrl.split('?')[1] : '');
+    const routeParams = new URLSearchParams(routePath.includes('?') ? routePath.split('?')[1] : '');
+    const routePathOnly = routePath.split('?')[0];
+
+    // If route has query params, must match exactly (path + all query params)
+    if (routePath.includes('?')) {
+        if (currentPath !== routePathOnly) {
+            return false;
+        }
+        // Check all route params exist in current URL with same values
+        for (const [key, value] of routeParams) {
+            if (currentParams.get(key) !== value) {
+                return false;
+            }
+        }
         return true;
     }
 
-    // For /vendor-reports, match /vendor-reports/* but not /vendor-reports?filter=...
-    if (routePath === '/vendor-reports') {
-        return currentUrl.startsWith('/vendor-reports');
+    // For routes without query params
+    // Exact path match
+    if (currentPath === routePathOnly) {
+        // For /vendor-reports without query params, only active if no filter param
+        if (routePathOnly === '/vendor-reports') {
+            return !currentParams.has('filter');
+        }
+        return true;
+    }
+
+    // For /vendor-reports, match /vendor-reports/* (sub-routes like /vendor-reports/123)
+    if (routePathOnly === '/vendor-reports') {
+        return currentPath.startsWith('/vendor-reports/');
     }
 
     return false;

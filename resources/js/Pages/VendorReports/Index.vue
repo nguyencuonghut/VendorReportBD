@@ -123,6 +123,7 @@
                                 icon="pi pi-pencil"
                                 variant="outlined"
                                 rounded
+                                severity="warn"
                                 @click="editReport(slotProps.data)"
                                 v-tooltip="'Chỉnh sửa'"
                             />
