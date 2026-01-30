@@ -44,7 +44,7 @@ class VendorReportRejected extends Notification implements ShouldQueue
             ->line("**Mã phiếu:** {$this->report->code}")
             ->line("**Tiêu đề:** {$this->report->title}")
             ->line("**Người từ chối:** {$this->step->actedByUser->name}")
-            ->line("**Bước bị từ chối:** Bước {$this->step->step_order} - {$this->step->role_label}")
+            ->line("**Bước bị từ chối:** Bước {$this->step->step_order} - {$this->step->getStepKeyLabel()}")
             ->line("**Lý do từ chối:**")
             ->line($this->rejectionNote)
             ->action('Xem chi tiết phiếu', url("/vendor-reports/{$this->report->id}"))

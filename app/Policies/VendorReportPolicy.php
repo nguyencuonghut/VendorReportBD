@@ -162,7 +162,21 @@ class VendorReportPolicy
     {
         $currentStep = $vendorReport->currentStep;
 
-        return $currentStep && $currentStep->assignee_user_id === $user->id;
+        if (!$currentStep) {
+            return false;
+        }
+
+        // Trường hợp 1: Đã được assign cụ thể cho user
+        if ($currentStep->assignee_user_id === $user->id) {
+            return true;
+        }
+
+        // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+        if (!$currentStep->assignee_user_id && $currentStep->assignee_role) {
+            return $user->hasRole($currentStep->assignee_role);
+        }
+
+        return false;
     }
 
     /**

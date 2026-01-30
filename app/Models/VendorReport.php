@@ -66,7 +66,7 @@ class VendorReport extends Model
         return match($this->status) {
             'DRAFT' => 'info',
             'SUBMITTED' => 'primary',
-            'IN_APPROVAL' => 'warning',
+            'IN_APPROVAL' => 'warn',
             'APPROVED' => 'success',
             'REJECTED' => 'danger',
             default => 'secondary',

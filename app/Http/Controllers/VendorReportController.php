@@ -39,7 +39,20 @@ class VendorReportController extends Controller
             ->when($request->filter === 'pending-approval', function($q) use ($user) {
                 // Filter: Chờ phê duyệt - phiếu đang chờ mình duyệt
                 $q->where('status', 'IN_APPROVAL')
-                  ->whereHas('currentStep', fn($query) => $query->where('assignee_user_id', $user->id));
+                  ->whereHas('currentStep', function($query) use ($user) {
+                      $query->where(function($q) use ($user) {
+                          // Trường hợp 1: Đã được assign cụ thể cho user
+                          $q->where('assignee_user_id', $user->id)
+                            // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                            ->orWhere(function($q2) use ($user) {
+                                $q2->whereNull('assignee_user_id');
+
+                                // Check role của user và match với assignee_role
+                                $userRoles = $user->roles->pluck('name')->toArray();
+                                $q2->whereIn('assignee_role', $userRoles);
+                            });
+                      });
+                  });
             })
             ->when(!$request->filter, function($q) use ($user) {
                 // Không có filter: áp dụng logic phân quyền mặc định
@@ -68,14 +81,40 @@ class VendorReportController extends Controller
                         // Phiếu của nhân viên cùng phòng
                         $query->whereHas('creator', fn($q) => $q->where('department_id', $user->department_id))
                               // Hoặc phiếu cần mình duyệt
-                              ->orWhereHas('currentStep', fn($q) => $q->where('assignee_user_id', $user->id));
+                              ->orWhereHas('currentStep', function($q) use ($user) {
+                                  $q->where(function($q2) use ($user) {
+                                      // Trường hợp 1: Đã được assign cụ thể cho user
+                                      $q2->where('assignee_user_id', $user->id)
+                                         // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                                         ->orWhere(function($q3) use ($user) {
+                                             $q3->whereNull('assignee_user_id');
+
+                                             // Check role của user và match với assignee_role
+                                             $userRoles = $user->roles->pluck('name')->toArray();
+                                             $q3->whereIn('assignee_role', $userRoles);
+                                         });
+                                  });
+                              });
                     });
                     return;
                 }
 
                 // Approver roles: xem phiếu cần mình duyệt
                 if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
-                    $q->whereHas('currentStep', fn($query) => $query->where('assignee_user_id', $user->id));
+                    $q->whereHas('currentStep', function($query) use ($user) {
+                        $query->where(function($q) use ($user) {
+                            // Trường hợp 1: Đã được assign cụ thể cho user
+                            $q->where('assignee_user_id', $user->id)
+                              // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                              ->orWhere(function($q2) use ($user) {
+                                  $q2->whereNull('assignee_user_id');
+
+                                  // Check role của user và match với assignee_role
+                                  $userRoles = $user->roles->pluck('name')->toArray();
+                                  $q2->whereIn('assignee_role', $userRoles);
+                              });
+                        });
+                    });
                     return;
                 }
 

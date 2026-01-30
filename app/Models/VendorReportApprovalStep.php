@@ -61,7 +61,7 @@ class VendorReportApprovalStep extends Model
     public function getStatusColor(): string
     {
         return match($this->status) {
-            'PENDING' => 'warning',
+            'PENDING' => 'warn',
             'APPROVED' => 'success',
             'REJECTED' => 'danger',
             'SKIPPED' => 'secondary',
@@ -108,7 +108,21 @@ class VendorReportApprovalStep extends Model
 
     public function canActOn(User $user): bool
     {
-        return $this->isPending() && $this->assignee_user_id === $user->id;
+        if (!$this->isPending()) {
+            return false;
+        }
+
+        // Trường hợp 1: Đã được assign cụ thể cho user
+        if ($this->assignee_user_id === $user->id) {
+            return true;
+        }
+
+        // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+        if (!$this->assignee_user_id && $this->assignee_role) {
+            return $user->hasRole($this->assignee_role);
+        }
+
+        return false;
     }
 
     // Activity Log

@@ -27,6 +27,12 @@ class VendorReportResource extends JsonResource
             'workflow_type_label' => $this->getWorkflowTypeLabel(),
             'status_label' => $this->getStatusLabel(),
             'status_color' => $this->getStatusColor(),
+            'rejected_step_label' => $this->when($this->status === 'REJECTED', function() {
+                return $this->approvalSteps()
+                    ->where('status', 'REJECTED')
+                    ->first()
+                    ?->getStepKeyLabel();
+            }),
 
             // Relationships
             'creator' => new UserResource($this->whenLoaded('creator')),

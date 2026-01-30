@@ -52,6 +52,12 @@ class VendorReportApprovalService
         }
 
         return DB::transaction(function () use ($report, $currentStep, $approver, $note, $selectedNextApproverId) {
+            // 0. Nếu step chưa có assignee_user_id, tự động gán cho approver hiện tại
+            if (!$currentStep->assignee_user_id) {
+                $currentStep->update(['assignee_user_id' => $approver->id]);
+                $currentStep->refresh();
+            }
+
             // 1. Update current step
             $currentStep->update([
                 'status' => 'APPROVED',
@@ -76,9 +82,16 @@ class VendorReportApprovalService
                 // Update current_step_id
                 $report->update(['current_step_id' => $nextStep->id]);
 
-                // Send notification to next step assignee
+                // Send notification to next step assignee(s)
                 if ($nextStep->assigneeUser) {
+                    // Đã có assignee cụ thể → gửi cho người đó
                     $nextStep->assigneeUser->notify(new VendorReportApprovalRequired($report, $nextStep));
+                } elseif ($nextStep->assignee_role) {
+                    // Chưa có assignee cụ thể, chỉ có role → gửi cho TẤT CẢ users có role đó
+                    $usersWithRole = User::role($nextStep->assignee_role)->get();
+                    foreach ($usersWithRole as $user) {
+                        $user->notify(new VendorReportApprovalRequired($report, $nextStep));
+                    }
                 }
             } else {
                 // Không còn step nào → APPROVED
@@ -132,6 +145,12 @@ class VendorReportApprovalService
         }
 
         return DB::transaction(function () use ($report, $currentStep, $approver, $rejectionNote) {
+            // 0. Nếu step chưa có assignee_user_id, tự động gán cho approver hiện tại
+            if (!$currentStep->assignee_user_id) {
+                $currentStep->update(['assignee_user_id' => $approver->id]);
+                $currentStep->refresh();
+            }
+
             // 1. Update current step
             $currentStep->update([
                 'status' => 'REJECTED',

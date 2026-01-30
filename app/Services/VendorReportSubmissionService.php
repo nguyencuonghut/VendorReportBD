@@ -65,9 +65,18 @@ class VendorReportSubmissionService
             // 5. Log activity
             $this->activityService->logSubmitted($report);
 
-            // 6. Send notification to first step assignee
-            if ($report->currentStep && $report->currentStep->assigneeUser) {
-                $report->currentStep->assigneeUser->notify(new VendorReportSubmitted($report));
+            // 6. Send notification to first step assignee(s)
+            if ($report->currentStep) {
+                if ($report->currentStep->assigneeUser) {
+                    // Đã có assignee cụ thể → gửi cho người đó
+                    $report->currentStep->assigneeUser->notify(new VendorReportSubmitted($report));
+                } elseif ($report->currentStep->assignee_role) {
+                    // Chưa có assignee cụ thể, chỉ có role → gửi cho TẤT CẢ users có role đó
+                    $usersWithRole = \App\Models\User::role($report->currentStep->assignee_role)->get();
+                    foreach ($usersWithRole as $user) {
+                        $user->notify(new VendorReportSubmitted($report));
+                    }
+                }
             }
 
             return $report;

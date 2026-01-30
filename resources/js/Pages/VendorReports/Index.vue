@@ -89,9 +89,15 @@
                         <Tag :value="slotProps.data.workflow_type_label" severity="info" />
                     </template>
                 </Column>
-                <Column field="status" header="Trạng thái" style="min-width: 12rem">
+                <Column field="status" header="Trạng thái" style="min-width: 14rem">
                     <template #body="slotProps">
-                        <Tag :value="slotProps.data.status_label" :severity="slotProps.data.status_color" />
+                        <div class="flex flex-col gap-1">
+                            <Tag :value="slotProps.data.status_label" :severity="slotProps.data.status_color" />
+                            <small v-if="slotProps.data.status === 'IN_APPROVAL' && slotProps.data.current_step" class="text-gray-600">
+                                {{ slotProps.data.current_step?.data?.step_key_label || slotProps.data.current_step?.step_key_label }}
+                            </small>                            <small v-if="slotProps.data.status === 'REJECTED' && slotProps.data.rejected_step_label" class="text-red-600">
+                                {{ slotProps.data.rejected_step_label }}
+                            </small>                        </div>
                     </template>
                 </Column>
                 <Column field="creator" header="Người tạo" style="min-width: 14rem">
