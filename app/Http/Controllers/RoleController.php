@@ -149,7 +149,7 @@ class RoleController extends Controller
         $this->authorize('delete', $role);
 
         // Prevent deleting system roles
-        $systemRoles = ['Super Admin', 'Admin'];
+        $systemRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
         if (in_array($role->name, $systemRoles)) {
             return redirect()->route('roles.index')->with([
                 'message' => 'roles.cannotDeleteSystemRoles',
@@ -188,7 +188,7 @@ class RoleController extends Controller
         ]);
 
         // Prevent deleting system roles
-        $systemRoles = ['Super Admin', 'Admin'];
+        $systemRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
         $rolesToDelete = Role::whereIn('id', $request->ids)
             ->whereNotIn('name', $systemRoles)
             ->get();

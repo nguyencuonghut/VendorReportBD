@@ -17,6 +17,7 @@ class RoleResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'label' => $this->label, // Add Vietnamese label
             'guard_name' => $this->guard_name,
             'permissions' => $this->when(
                 $this->relationLoaded('permissions'),

@@ -25,7 +25,7 @@ class UserSeeder extends Seeder
         ]);
         $adminSystem->assignRole('admin_system');
 
-        // Create requesters (người tạo phiếu)
+        // Create requesters (người mua hàng - chọn nhà cung cấp)
         $requester1 = User::factory()->create([
             'name' => 'Nguyễn Văn A',
             'email' => 'requester1@example.com',
@@ -42,7 +42,7 @@ class UserSeeder extends Seeder
         ]);
         $requester2->assignRole('requester');
 
-        // Create purchasing admin (theo dõi, không tham gia duyệt)
+        // Create purchasing admin (hành chính - thủ tục, theo dõi, không tham gia duyệt)
         $purchasingAdmin = User::factory()->create([
             'name' => 'Lê Văn C',
             'email' => 'purchasing.admin@example.com',

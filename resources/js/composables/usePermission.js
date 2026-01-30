@@ -7,11 +7,11 @@ import { usePage } from '@inertiajs/vue3';
  * Usage:
  * const { hasRole, hasPermission, hasAnyRole, hasAllRoles, hasAnyPermission, can } = usePermission();
  *
- * if (hasRole('Super Admin')) { ... }
+ * if (hasRole('admin_system')) { ... }
  * if (can('manage users')) { ... }
  *
  * In template:
- * <Button v-if="hasRole('Super Admin')" />
+ * <Button v-if="hasRole('admin_system')" />
  * <div v-if="can('edit users')"> ... </div>
  */
 export function usePermission() {
@@ -114,19 +114,29 @@ export function usePermission() {
     };
 
     /**
-     * Check if user is Super Admin
+     * Check if user is System Admin (highest privilege)
      * @returns {boolean}
      */
-    const isSuperAdmin = () => {
-        return hasRole('Super Admin');
+    const isAdminSystem = () => {
+        return hasRole('admin_system');
     };
 
     /**
-     * Check if user is Admin (Super Admin or Admin)
+     * Backward compatibility: alias for isAdminSystem
+     * @deprecated Use isAdminSystem instead
+     * @returns {boolean}
+     */
+    const isSuperAdmin = () => {
+        return isAdminSystem();
+    };
+
+    /**
+     * Check if user is Admin (deprecated - kept for backward compatibility)
+     * @deprecated Role system changed, use isAdminSystem or specific role checks
      * @returns {boolean}
      */
     const isAdmin = () => {
-        return hasAnyRole(['Super Admin', 'Admin']);
+        return isAdminSystem();
     };
 
     /**
@@ -134,7 +144,7 @@ export function usePermission() {
      * @returns {boolean}
      */
     const canManageUsers = () => {
-        return isSuperAdmin();
+        return isAdminSystem();
     };
 
     /**
@@ -142,7 +152,7 @@ export function usePermission() {
      * @returns {boolean}
      */
     const canManageRoles = () => {
-        return isSuperAdmin();
+        return isAdminSystem();
     };
 
     /**
@@ -150,7 +160,7 @@ export function usePermission() {
      * @returns {boolean}
      */
     const canManageBackups = () => {
-        return isSuperAdmin();
+        return isAdminSystem();
     };
 
     return {
@@ -171,8 +181,9 @@ export function usePermission() {
         can,
 
         // Convenience methods
-        isSuperAdmin,
-        isAdmin,
+        isAdminSystem,
+        isSuperAdmin, // Deprecated: backward compatibility
+        isAdmin, // Deprecated: backward compatibility
         canManageUsers,
         canManageRoles,
         canManageBackups,

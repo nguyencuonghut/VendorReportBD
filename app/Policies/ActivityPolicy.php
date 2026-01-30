@@ -12,7 +12,7 @@ class ActivityPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -20,7 +20,7 @@ class ActivityPolicy
      */
     public function view(User $user, Activity $activity): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -44,7 +44,7 @@ class ActivityPolicy
      */
     public function delete(User $user, Activity $activity): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -52,7 +52,7 @@ class ActivityPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**

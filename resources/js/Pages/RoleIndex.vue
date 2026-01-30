@@ -44,7 +44,7 @@
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false" v-if="isSuperAdmin()"></Column>
                 <Column field="name" header="Tên vai trò" sortable style="min-width: 16rem">
                     <template #body="slotProps">
-                        <Tag :value="slotProps.data.name" :severity="getRoleSeverity(slotProps.data.name)" />
+                        <Tag :value="slotProps.data.label || slotProps.data.name" :severity="getRoleSeverity(slotProps.data.name)" />
                     </template>
                 </Column>
                 <Column field="permissions_count" header="Số quyền" sortable style="min-width: 10rem">
@@ -208,13 +208,15 @@ const formatDate = (date) => {
 };
 
 const getRoleSeverity = (roleName) => {
-    const systemRoles = ['Super Admin', 'Admin', 'Manager', 'User'];
-    return systemRoles.includes(roleName) ? 'danger' : 'info';
+    // New role system: workflow-specific roles
+    const workflowRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
+    return workflowRoles.includes(roleName) ? 'info' : 'secondary';
 };
 
 const isSystemRole = (roleName) => {
-    const systemRoles = ['Super Admin', 'Admin'];
-    return systemRoles.includes(roleName);
+    // Protect system roles from deletion
+    const protectedRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
+    return protectedRoles.includes(roleName);
 };
 
 const openNew = () => {

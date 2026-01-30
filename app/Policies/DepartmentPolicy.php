@@ -29,8 +29,8 @@ class DepartmentPolicy
      */
     public function create(User $user): bool
     {
-        // Chỉ Super Admin mới tạo được department
-        return $user->is_active && $user->hasRole('Super Admin');
+        // Chỉ admin_system mới tạo được department
+        return $user->is_active && $user->hasRole('admin_system');
     }
 
     /**
@@ -41,8 +41,8 @@ class DepartmentPolicy
      */
     public function update(User $user, Department $department): bool
     {
-        // Chỉ Super Admin mới update được department
-        return $user->is_active && $user->hasRole('Super Admin');
+        // Chỉ admin_system mới update được department
+        return $user->is_active && $user->hasRole('admin_system');
     }
 
     /**
@@ -50,8 +50,8 @@ class DepartmentPolicy
      */
     public function delete(User $user, Department $department): bool
     {
-        // Chỉ Super Admin mới delete được department
-        return $user->is_active && $user->hasRole('Super Admin');
+        // Chỉ admin_system mới delete được department
+        return $user->is_active && $user->hasRole('admin_system');
     }
 
     /**
@@ -59,7 +59,7 @@ class DepartmentPolicy
      */
     public function restore(User $user, Department $department): bool
     {
-        return $user->is_active && $user->hasRole('Super Admin');
+        return $user->is_active && $user->hasRole('admin_system');
     }
 
     /**
@@ -67,6 +67,6 @@ class DepartmentPolicy
      */
     public function forceDelete(User $user, Department $department): bool
     {
-        return $user->is_active && $user->hasRole('Super Admin');
+        return $user->is_active && $user->hasRole('admin_system');
     }
 }

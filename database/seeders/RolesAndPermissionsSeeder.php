@@ -65,7 +65,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminSystem = Role::create(['name' => 'admin_system']);
         $adminSystem->givePermissionTo(Permission::all());
 
-        // Requester - Can create and submit vendor reports
+        // Requester - Người mua hàng (chọn nhà cung cấp, tạo và nộp báo cáo)
         $requester = Role::create(['name' => 'requester']);
         $requester->givePermissionTo([
             'view vendor reports',
@@ -75,7 +75,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view activity logs',
         ]);
 
-        // Purchasing Admin - Monitor vendor reports (not in approval workflow)
+        // Purchasing Admin - Hành chính/thủ tục (theo dõi, chạy giấy tờ, không tham gia duyệt)
         $purchasingAdmin = Role::create(['name' => 'purchasing_admin']);
         $purchasingAdmin->givePermissionTo([
             'view vendor reports',

@@ -14,7 +14,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -23,7 +23,7 @@ class UserPolicy
     public function view(User $user, User $model): bool
     {
         // User can view their own profile or if they're Super Admin
-        return $user->id === $model->id || $user->hasRole('Super Admin');
+        return $user->id === $model->id || $user->hasRole('admin_system');
     }
 
     /**
@@ -31,7 +31,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -40,7 +40,7 @@ class UserPolicy
     public function update(User $user, User $model): bool
     {
         // User can update their own profile or if they're Super Admin
-        return $user->id === $model->id || $user->hasRole('Super Admin');
+        return $user->id === $model->id || $user->hasRole('admin_system');
     }
 
     /**
@@ -49,7 +49,7 @@ class UserPolicy
     public function delete(User $user, User $model): bool
     {
         // Cannot delete yourself, only Super Admin can delete others
-        return $user->id !== $model->id && $user->hasRole('Super Admin');
+        return $user->id !== $model->id && $user->hasRole('admin_system');
     }
 
     /**
@@ -57,7 +57,7 @@ class UserPolicy
      */
     public function restore(User $user, User $model): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -65,7 +65,7 @@ class UserPolicy
      */
     public function forceDelete(User $user, User $model): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -73,6 +73,6 @@ class UserPolicy
      */
     public function bulkDelete(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 }

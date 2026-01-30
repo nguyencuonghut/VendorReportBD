@@ -15,7 +15,7 @@ class BackupConfigurationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -23,7 +23,7 @@ class BackupConfigurationPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -31,7 +31,7 @@ class BackupConfigurationPolicy
      */
     public function download(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -39,7 +39,7 @@ class BackupConfigurationPolicy
      */
     public function viewConfigurations(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -47,7 +47,7 @@ class BackupConfigurationPolicy
      */
     public function createConfiguration(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -55,7 +55,7 @@ class BackupConfigurationPolicy
      */
     public function updateConfiguration(User $user, BackupConfiguration $configuration): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -63,7 +63,7 @@ class BackupConfigurationPolicy
      */
     public function deleteConfiguration(User $user, BackupConfiguration $configuration): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -71,7 +71,7 @@ class BackupConfigurationPolicy
      */
     public function toggleConfiguration(User $user, BackupConfiguration $configuration): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -79,7 +79,7 @@ class BackupConfigurationPolicy
      */
     public function runConfiguration(User $user, BackupConfiguration $configuration): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 
     /**
@@ -87,6 +87,6 @@ class BackupConfigurationPolicy
      */
     public function manageGoogleDrive(User $user): bool
     {
-        return $user->hasRole('Super Admin');
+        return $user->hasRole('admin_system');
     }
 }

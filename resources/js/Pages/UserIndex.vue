@@ -53,7 +53,7 @@
                 </Column>
                 <Column field="roles" :header="t('users.roles')" style="min-width: 12rem">
                     <template #body="slotProps">
-                        <Tag v-for="role in slotProps.data.roles" :key="role.id" :value="role.name" severity="info" class="mr-1" />
+                        <Tag v-for="role in slotProps.data.roles" :key="role.id" :value="role.label || role.name" severity="info" class="mr-1" />
                     </template>
                 </Column>
                 <Column field="status" :header="t('users.status')" style="min-width: 8rem">

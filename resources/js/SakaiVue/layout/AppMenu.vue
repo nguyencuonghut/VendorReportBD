@@ -23,7 +23,8 @@ const model = computed(() => {
         },
     ];
 
-    // Only show System menu for Super Admin
+    // Only show System menu for admin_system role (highest privilege)
+    // isSuperAdmin() is kept for backward compatibility but maps to admin_system
     if (isSuperAdmin()) {
         items.push({
             label: 'Quản trị',
