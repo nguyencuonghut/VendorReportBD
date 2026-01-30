@@ -21,7 +21,7 @@ class Role extends SpatieRole
             'requester' => 'Người mua hàng',
             'purchasing_admin' => 'Admin mua hàng',
             'internal_control' => 'Kiểm soát nội bộ',
-            'national_purchasing' => 'Mua hàng quốc gia',
+            'national_purchasing' => 'Mua hàng toàn quốc',
             'tech_board' => 'Hội đồng kỹ thuật',
             'bod' => 'Ban Giám đốc',
         ];
