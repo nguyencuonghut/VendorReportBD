@@ -88,14 +88,24 @@
                             <span class="text-sm text-gray-600">
                                 {{ formatFileSize(existingReportImage.size) }}
                             </span>
-                            <Button
-                                label="Xóa ảnh hiện tại"
-                                icon="pi pi-trash"
-                                severity="danger"
-                                text
-                                size="small"
-                                @click="markFileForDeletion(existingReportImage.id)"
-                            />
+                            <div class="flex gap-2">
+                                <Button
+                                    label="Mở trong tab mới"
+                                    icon="pi pi-external-link"
+                                    severity="secondary"
+                                    text
+                                    size="small"
+                                    @click="viewFile(existingReportImage.id)"
+                                />
+                                <Button
+                                    label="Xóa ảnh hiện tại"
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="markFileForDeletion(existingReportImage.id)"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -142,10 +142,19 @@
                                     />
                                     <div class="absolute top-2 right-2 flex gap-2">
                                         <Button
+                                            icon="pi pi-external-link"
+                                            severity="secondary"
+                                            rounded
+                                            size="small"
+                                            v-tooltip.left="'Mở trong tab mới'"
+                                            @click="viewFile(file.id)"
+                                        />
+                                        <Button
                                             icon="pi pi-download"
                                             severity="secondary"
                                             rounded
                                             size="small"
+                                            v-tooltip.left="'Tải xuống'"
                                             @click="downloadFile(file.id)"
                                         />
                                     </div>
