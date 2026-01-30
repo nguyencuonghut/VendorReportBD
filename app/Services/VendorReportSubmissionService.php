@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\VendorReport;
+use App\Notifications\VendorReportSubmitted;
 use Illuminate\Support\Facades\DB;
 
 class VendorReportSubmissionService
@@ -63,6 +64,11 @@ class VendorReportSubmissionService
 
             // 5. Log activity
             $this->activityService->logSubmitted($report);
+
+            // 6. Send notification to first step assignee
+            if ($report->currentStep && $report->currentStep->assigneeUser) {
+                $report->currentStep->assigneeUser->notify(new VendorReportSubmitted($report));
+            }
 
             return $report;
         });

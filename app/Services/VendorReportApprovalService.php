@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\VendorReport;
 use App\Models\VendorReportApprovalStep;
 use App\Models\User;
+use App\Notifications\VendorReportApprovalRequired;
+use App\Notifications\VendorReportApproved;
+use App\Notifications\VendorReportRejected;
 use Illuminate\Support\Facades\DB;
 
 class VendorReportApprovalService
@@ -72,6 +75,11 @@ class VendorReportApprovalService
 
                 // Update current_step_id
                 $report->update(['current_step_id' => $nextStep->id]);
+
+                // Send notification to next step assignee
+                if ($nextStep->assigneeUser) {
+                    $nextStep->assigneeUser->notify(new VendorReportApprovalRequired($report, $nextStep));
+                }
             } else {
                 // Không còn step nào → APPROVED
                 $report->update([
@@ -80,6 +88,12 @@ class VendorReportApprovalService
                     'current_step_id' => null,
                 ]);
                 $this->activityService->logCompleted($report);
+
+                // Send completion notification to creator and purchasing admin
+                $report->creator->notify(new VendorReportApproved($report));
+                if ($report->purchasingAdmin && $report->purchasingAdmin->id !== $report->creator->id) {
+                    $report->purchasingAdmin->notify(new VendorReportApproved($report));
+                }
             }
 
             // 3. Log activity
@@ -136,6 +150,12 @@ class VendorReportApprovalService
 
             // 3. Log activity
             $this->activityService->logRejected($report, $approver, $rejectionNote, $currentStep->step_order);
+
+            // 4. Send rejection notification to creator and purchasing admin
+            $report->creator->notify(new VendorReportRejected($report, $currentStep, $rejectionNote));
+            if ($report->purchasingAdmin && $report->purchasingAdmin->id !== $report->creator->id) {
+                $report->purchasingAdmin->notify(new VendorReportRejected($report, $currentStep, $rejectionNote));
+            }
 
             return $report->refresh();
         });

@@ -13,12 +13,14 @@ class DepartmentSeeder extends Seeder
     public function run(): void
     {
         $departments = [
-            ['code' => 'TM', 'name' => 'Phòng Thương mại'],
-            ['code' => 'BT', 'name' => 'Phòng Bán hàng Thương mại'],
-            ['code' => 'KSNB', 'name' => 'Phòng Kiểm soát nội bộ'],
-            ['code' => 'BGD', 'name' => 'Ban Giám đốc'],
-            ['code' => 'KT', 'name' => 'Ban Kỹ thuật'],
-            ['code' => 'MH', 'name' => 'Khối Mua hàng toàn quốc'],
+            ['code' => 'HCNS', 'name' => 'Phòng Hành Chính Nhân Sự'],
+            ['code' => 'TM', 'name' => 'Phòng Thu Mua'],
+            ['code' => 'MH', 'name' => 'Khối Mua Hàng Toàn Quốc'],
+            ['code' => 'KSNB', 'name' => 'Bộ phận Kiểm Soát Nội Bộ'],
+            ['code' => 'SX', 'name' => 'Phòng Sản Xuất'],
+            ['code' => 'BGD', 'name' => 'Ban Giám Đốc'],
+            ['code' => 'KT', 'name' => 'Ban Kỹ Thuật'],
+            ['code' => 'IT', 'name' => 'Bộ phận IT'],
         ];
 
         foreach ($departments as $dept) {
