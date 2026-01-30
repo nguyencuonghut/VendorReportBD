@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateVendorReportRequest;
 use App\Http\Resources\VendorReportResource;
 use App\Services\VendorReportSubmissionService;
 use App\Services\VendorReportApprovalService;
+use App\Services\VendorReportActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -16,7 +17,8 @@ class VendorReportController extends Controller
 {
     public function __construct(
         private VendorReportSubmissionService $submissionService,
-        private VendorReportApprovalService $approvalService
+        private VendorReportApprovalService $approvalService,
+        private VendorReportActivityService $activityService
     ) {}
 
     /**
@@ -155,22 +157,32 @@ class VendorReportController extends Controller
         // Create report first (code will be generated on submit)
         $report = VendorReport::create($validated);
 
+        // Collect uploaded files info
+        $uploadedFiles = [];
+
         // Handle file uploads
         if ($request->hasFile('report_image')) {
-            $this->uploadFile($report, $request->file('report_image'), 'REPORT_IMAGE');
+            $file = $request->file('report_image');
+            $this->uploadFile($report, $file, 'REPORT_IMAGE');
+            $uploadedFiles[] = $this->activityService->formatFileInfo('REPORT_IMAGE', $file->getClientOriginalName(), $file->getSize());
         }
 
         if ($request->hasFile('quotation_files')) {
             foreach ($request->file('quotation_files') as $file) {
                 $this->uploadFile($report, $file, 'QUOTATION');
+                $uploadedFiles[] = $this->activityService->formatFileInfo('QUOTATION', $file->getClientOriginalName(), $file->getSize());
             }
         }
 
         if ($request->hasFile('boq_files')) {
             foreach ($request->file('boq_files') as $file) {
                 $this->uploadFile($report, $file, 'BOQ');
+                $uploadedFiles[] = $this->activityService->formatFileInfo('BOQ', $file->getClientOriginalName(), $file->getSize());
             }
         }
+
+        // Log creation with all uploaded files
+        $this->activityService->logCreated($report, $uploadedFiles);
 
         return redirect()->route('vendor-reports.index')
             ->with('success', 'Tạo phiếu thành công');
@@ -246,27 +258,18 @@ class VendorReportController extends Controller
             ];
         });
 
-        // Get activities
-        $activityLabels = [
-            'created' => 'Tạo phiếu',
-            'report_created' => 'Tạo phiếu',
-            'updated' => 'Cập nhật phiếu',
-            'submitted' => 'Nộp phiếu',
-            'approved' => 'Phê duyệt',
-            'rejected' => 'Từ chối',
-            'report_cloned_from_rejected' => 'Sao chép từ phiếu bị từ chối',
-        ];
-
+        // Get activities with detailed formatting
         $activities = \Spatie\Activitylog\Models\Activity::where('subject_type', VendorReport::class)
             ->where('subject_id', $vendorReport->id)
             ->with('causer')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($activity) use ($activityLabels) {
+            ->map(function ($activity) {
                 return [
                     'id' => $activity->id,
                     'description' => $activity->description,
-                    'description_label' => $activityLabels[$activity->description] ?? $activity->description,
+                    'description_label' => VendorReportActivityService::getActivityLabels()[$activity->description] ?? $activity->description,
+                    'description_formatted' => VendorReportActivityService::formatActivityDescription($activity),
                     'created_at' => $activity->created_at->toISOString(),
                     'causer' => $activity->causer ? [
                         'id' => $activity->causer->id,
@@ -337,48 +340,74 @@ class VendorReportController extends Controller
 
         $validated = $request->validated();
 
+        // Track changes for detailed logging
+        $changes = [];
+        $original = $vendorReport->getOriginal();
+
+        if (isset($validated['title']) && $original['title'] !== $validated['title']) {
+            $changes['title'] = ['old' => $original['title'], 'new' => $validated['title']];
+        }
+        if (isset($validated['workflow_type']) && $original['workflow_type'] !== $validated['workflow_type']) {
+            $changes['workflow_type'] = ['old' => $original['workflow_type'], 'new' => $validated['workflow_type']];
+        }
+        if (isset($validated['purchasing_admin_id']) && $original['purchasing_admin_id'] != $validated['purchasing_admin_id']) {
+            $changes['purchasing_admin_id'] = ['old' => $original['purchasing_admin_id'], 'new' => $validated['purchasing_admin_id']];
+        }
+
         // Update basic fields
         $vendorReport->update($validated);
+
+        // Collect deleted files info
+        $deletedFiles = [];
 
         // Handle file deletions
         if ($request->has('delete_files') && is_array($request->delete_files)) {
             foreach ($request->delete_files as $fileId) {
                 $file = $vendorReport->files()->find($fileId);
                 if ($file) {
+                    $deletedFiles[] = $this->activityService->formatFileInfo($file->type, $file->original_name);
                     Storage::disk($file->disk)->delete($file->path);
                     $file->delete();
                 }
             }
         }
 
+        // Collect uploaded files info
+        $uploadedFiles = [];
+
         // Handle file uploads
         if ($request->hasFile('report_image')) {
             // Delete old report image
             $oldImage = $vendorReport->files()->where('type', 'REPORT_IMAGE')->first();
             if ($oldImage) {
+                $deletedFiles[] = $this->activityService->formatFileInfo($oldImage->type, $oldImage->original_name);
                 Storage::disk($oldImage->disk)->delete($oldImage->path);
                 $oldImage->delete();
             }
             // Upload new image
-            $this->uploadFile($vendorReport, $request->file('report_image'), 'REPORT_IMAGE');
+            $file = $request->file('report_image');
+            $this->uploadFile($vendorReport, $file, 'REPORT_IMAGE');
+            $uploadedFiles[] = $this->activityService->formatFileInfo('REPORT_IMAGE', $file->getClientOriginalName(), $file->getSize());
         }
 
         if ($request->hasFile('quotation_files')) {
             foreach ($request->file('quotation_files') as $file) {
                 $this->uploadFile($vendorReport, $file, 'QUOTATION');
+                $uploadedFiles[] = $this->activityService->formatFileInfo('QUOTATION', $file->getClientOriginalName(), $file->getSize());
             }
         }
 
         if ($request->hasFile('boq_files')) {
             foreach ($request->file('boq_files') as $file) {
                 $this->uploadFile($vendorReport, $file, 'BOQ');
+                $uploadedFiles[] = $this->activityService->formatFileInfo('BOQ', $file->getClientOriginalName(), $file->getSize());
             }
         }
 
-        activity()
-            ->performedOn($vendorReport)
-            ->causedBy(auth()->user())
-            ->log('report_updated');
+        // Log update if there are any changes
+        if (count($changes) > 0 || count($deletedFiles) > 0 || count($uploadedFiles) > 0) {
+            $this->activityService->logUpdated($vendorReport, $changes, $deletedFiles, $uploadedFiles);
+        }
 
         return redirect()->route('vendor-reports.show', $vendorReport)
             ->with('success', 'Cập nhật phiếu thành công');
@@ -391,12 +420,9 @@ class VendorReportController extends Controller
     {
         $this->authorize('delete', $vendorReport);
 
-        $vendorReport->delete();
+        $this->activityService->logDeleted($vendorReport);
 
-        activity()
-            ->performedOn($vendorReport)
-            ->causedBy(auth()->user())
-            ->log('report_deleted');
+        $vendorReport->delete();
 
         return redirect()->route('vendor-reports.index')
             ->with('success', 'Xóa phiếu thành công');
@@ -496,11 +522,7 @@ class VendorReportController extends Controller
             'root_id' => $vendorReport->root_id ?? $vendorReport->id,
         ]);
 
-        activity()
-            ->performedOn($newReport)
-            ->causedBy(auth()->user())
-            ->withProperties(['cloned_from' => $vendorReport->id])
-            ->log('report_cloned_from_rejected');
+        $this->activityService->logClonedFromRejected($newReport, $vendorReport);
 
         return redirect()->route('vendor-reports.edit', $newReport)
             ->with('success', 'Tạo phiếu mới từ phiếu bị từ chối thành công');

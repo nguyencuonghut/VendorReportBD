@@ -9,7 +9,8 @@ class VendorReportSubmissionService
 {
     public function __construct(
         private VendorReportCodeGenerator $codeGenerator,
-        private VendorReportWorkflowBuilder $workflowBuilder
+        private VendorReportWorkflowBuilder $workflowBuilder,
+        private VendorReportActivityService $activityService
     ) {}
 
     /**
@@ -61,11 +62,7 @@ class VendorReportSubmissionService
             $report->refresh();
 
             // 5. Log activity
-            activity()
-                ->performedOn($report)
-                ->causedBy(auth()->user())
-                ->withProperties(['code' => $report->code, 'workflow_type' => $report->workflow_type])
-                ->log('report_submitted');
+            $this->activityService->logSubmitted($report);
 
             return $report;
         });

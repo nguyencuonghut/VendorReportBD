@@ -331,16 +331,14 @@
                                 {{ slotProps.data.causer?.name || 'Hệ thống' }}
                             </template>
                         </Column>
-                        <Column field="description" header="Hoạt động" style="min-width: 200px">
+                        <Column field="description_formatted" header="Hoạt động" style="min-width: 300px">
                             <template #body="slotProps">
-                                <Tag :value="slotProps.data.description_label || slotProps.data.description" severity="info" />
-                            </template>
-                        </Column>
-                        <Column field="properties" header="Chi tiết" style="min-width: 250px">
-                            <template #body="slotProps">
-                                <div v-if="slotProps.data.properties" class="text-sm">
-                                    <div v-for="(value, key) in slotProps.data.properties" :key="key" class="mb-1">
-                                        <strong>{{ key }}:</strong> {{ value }}
+                                <div class="space-y-1">
+                                    <div>
+                                        <Tag :value="slotProps.data.description_label" severity="info" class="mb-1" />
+                                    </div>
+                                    <div class="text-sm text-gray-700 whitespace-pre-line">
+                                        {{ slotProps.data.description_formatted }}
                                     </div>
                                 </div>
                             </template>

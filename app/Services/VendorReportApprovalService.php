@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\DB;
 
 class VendorReportApprovalService
 {
+    public function __construct(
+        private VendorReportActivityService $activityService
+    ) {}
+
     /**
      * Approve step hiện tại
      *
@@ -75,18 +79,11 @@ class VendorReportApprovalService
                     'approved_at' => now(),
                     'current_step_id' => null,
                 ]);
+                $this->activityService->logCompleted($report);
             }
 
             // 3. Log activity
-            activity()
-                ->performedOn($report)
-                ->causedBy($approver)
-                ->withProperties([
-                    'step_key' => $currentStep->step_key,
-                    'step_order' => $currentStep->step_order,
-                    'note' => $note,
-                ])
-                ->log('step_approved');
+            $this->activityService->logApproved($report, $approver, $note, $currentStep->step_order);
 
             return $report->refresh();
         });
@@ -138,15 +135,7 @@ class VendorReportApprovalService
             ]);
 
             // 3. Log activity
-            activity()
-                ->performedOn($report)
-                ->causedBy($approver)
-                ->withProperties([
-                    'step_key' => $currentStep->step_key,
-                    'step_order' => $currentStep->step_order,
-                    'rejection_note' => $rejectionNote,
-                ])
-                ->log('step_rejected');
+            $this->activityService->logRejected($report, $approver, $rejectionNote, $currentStep->step_order);
 
             return $report->refresh();
         });
