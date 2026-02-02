@@ -99,20 +99,28 @@ class VendorReportController extends Controller
                     return;
                 }
 
-                // Approver roles: xem phiếu cần mình duyệt
+                // Approver roles: xem phiếu cần mình duyệt hoặc đã duyệt
                 if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
-                    $q->whereHas('currentStep', function($query) use ($user) {
-                        $query->where(function($q) use ($user) {
-                            // Trường hợp 1: Đã được assign cụ thể cho user
-                            $q->where('assignee_user_id', $user->id)
-                              // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                              ->orWhere(function($q2) use ($user) {
-                                  $q2->whereNull('assignee_user_id');
+                    $q->where(function($query) use ($user) {
+                        // Phiếu cần mình duyệt
+                        $query->whereHas('currentStep', function($q) use ($user) {
+                            $q->where(function($q2) use ($user) {
+                                // Trường hợp 1: Đã được assign cụ thể cho user
+                                $q2->where('assignee_user_id', $user->id)
+                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                                   ->orWhere(function($q3) use ($user) {
+                                       $q3->whereNull('assignee_user_id');
 
-                                  // Check role của user và match với assignee_role
-                                  $userRoles = $user->roles->pluck('name')->toArray();
-                                  $q2->whereIn('assignee_role', $userRoles);
-                              });
+                                       // Check role của user và match với assignee_role
+                                       $userRoles = $user->roles->pluck('name')->toArray();
+                                       $q3->whereIn('assignee_role', $userRoles);
+                                   });
+                            });
+                        })
+                        // Hoặc phiếu mà mình đã duyệt/từ chối
+                        ->orWhereHas('approvalSteps', function($q) use ($user) {
+                            $q->where('acted_by', $user->id)
+                              ->whereIn('status', ['APPROVED', 'REJECTED']);
                         });
                     });
                     return;

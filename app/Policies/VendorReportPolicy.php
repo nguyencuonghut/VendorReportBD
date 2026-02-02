@@ -54,9 +54,14 @@ class VendorReportPolicy
             }
         }
 
-        // Approver roles: xem phiếu cần mình duyệt
+        // Approver roles: xem phiếu cần mình duyệt hoặc đã duyệt
         if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
+            // Phiếu cần mình duyệt
             if ($this->isCurrentApprover($user, $vendorReport)) {
+                return true;
+            }
+            // Phiếu mà mình đã duyệt/từ chối
+            if ($this->hasParticipatedInApproval($user, $vendorReport)) {
                 return true;
             }
         }
@@ -177,6 +182,19 @@ class VendorReportPolicy
         }
 
         return false;
+    }
+
+    /**
+     * Helper: Kiểm tra user có tham gia duyệt phiếu này không
+     */
+    private function hasParticipatedInApproval(User $user, VendorReport $vendorReport): bool
+    {
+        $participated = $vendorReport->approvalSteps()
+            ->where('acted_by', $user->id)
+            ->whereIn('status', ['APPROVED', 'REJECTED'])
+            ->exists();
+
+        return $participated;
     }
 
     /**

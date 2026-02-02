@@ -542,7 +542,10 @@ const reportImages = computed(() => {
 });
 
 const requiresSelection = computed(() => {
-    return props.currentStep && props.currentStep.requires_selection && props.selectableApprovers.length > 0;
+    // Handle Resource wrapper: currentStep might be {data: {...}} or direct object
+    const step = props.currentStep?.data || props.currentStep;
+
+    return step && step.requires_selection && props.selectableApprovers.length > 0;
 });
 
 // Helper functions

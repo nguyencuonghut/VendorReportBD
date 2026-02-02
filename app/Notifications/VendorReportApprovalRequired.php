@@ -48,7 +48,6 @@ class VendorReportApprovalRequired extends Notification implements ShouldQueue
             ->line("**Tiêu đề:** {$this->report->title}")
             ->line("**Người tạo:** {$this->report->creator->name}")
             ->line("**Loại quy trình:** {$this->report->getWorkflowTypeLabel()}")
-            ->line("**Bước hiện tại:** Bước {$this->step->step_order} - {$this->step->role_label}")
             ->line("**Người duyệt trước:** {$previousApprover}")
             ->action('Xem chi tiết phiếu', url("/vendor-reports/{$this->report->id}"))
             ->line('Vui lòng xem xét và phê duyệt phiếu này.');
