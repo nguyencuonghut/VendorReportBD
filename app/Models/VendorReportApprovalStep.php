@@ -54,7 +54,8 @@ class VendorReportApprovalStep extends Model
             'APPROVED' => 'Đã duyệt',
             'REJECTED' => 'Từ chối',
             'SKIPPED' => 'Bỏ qua',
-            default => $this->status,
+            null => 'N/A',
+            default => $this->status ?? 'N/A',
         };
     }
 

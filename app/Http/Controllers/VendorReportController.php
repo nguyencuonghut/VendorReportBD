@@ -43,7 +43,13 @@ class VendorReportController extends Controller
         ]);
 
         $reports = VendorReport::query()
-            ->with(['creator.department', 'purchasingAdmin', 'currentStep', 'children'])
+            ->with([
+                'creator:id,name,department_id',
+                'creator.department:id,name',
+                'currentStep:id,report_id,step_key,status',
+                'approvalSteps:id,report_id,step_key,status,step_order' // Load để hiển thị rejected_step_label
+            ])
+            ->withCount('children') // Chỉ đếm số lượng children thay vì load hết
             // Áp dụng logic phân quyền theo role
             ->when(true, function($q) use ($user) {
                 // Admin system: xem tất cả
@@ -137,6 +143,7 @@ class VendorReportController extends Controller
             ->when($request->department_id, function($q, $deptId) {
                 $q->whereHas('creator.department', fn($query) => $query->where('id', $deptId));
             })
+            ->when($request->created_by, fn($q, $creatorId) => $q->where('created_by', $creatorId))
             ->when($request->search, function($q, $search) {
                 $q->where(function($query) use ($search) {
                     $query->where('code', 'like', "%{$search}%")
@@ -144,18 +151,36 @@ class VendorReportController extends Controller
                 });
             })
             ->latest()
-            ->get();
+            ->paginate(10); // Server-side pagination - 10 phiếu/trang
 
         $departments = \App\Models\Department::active()
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
 
+        // Lấy danh sách người tạo phiếu (chỉ những người đã tạo phiếu)
+        $creators = \App\Models\User::whereIn('id', function($query) {
+                $query->select('created_by')
+                    ->from('vendor_reports')
+                    ->distinct();
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('VendorReports/Index', [
-            'reports' => VendorReportResource::collection($reports)->resolve(),
+            'reports' => [
+                'data' => VendorReportResource::collection($reports->items())->resolve(),
+                'current_page' => $reports->currentPage(),
+                'last_page' => $reports->lastPage(),
+                'per_page' => $reports->perPage(),
+                'total' => $reports->total(),
+                'from' => $reports->firstItem(),
+                'to' => $reports->lastItem(),
+            ],
             'departments' => $departments,
+            'creators' => $creators,
             'workflows' => VendorReport::getWorkflowTypesWithLabels(),
             'statuses' => VendorReport::getStatusLabels(),
-            'filters' => $request->only(['status', 'workflow_type', 'department_id', 'search']),
+            'filters' => $request->only(['status', 'workflow_type', 'department_id', 'created_by', 'search']),
         ]);
     }
 

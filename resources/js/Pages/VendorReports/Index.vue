@@ -20,10 +20,12 @@
                 :value="reportsList || []"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25, 50]"
+                :rows="props.reports.per_page || 10"
+                :totalRecords="props.reports.total || 0"
+                :lazy="true"
+                :first="((props.reports.current_page || 1) - 1) * (props.reports.per_page || 10)"
+                @page="onPageChange"
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport"
                 currentPageReportTemplate="Hiển thị từ {first} đến {last} trong tổng số {totalRecords} phiếu"
                 :loading="loading"
             >
@@ -67,6 +69,17 @@
                                 optionLabel="name"
                                 optionValue="id"
                                 placeholder="Phòng ban"
+                                class="w-52"
+                                @change="applyFilters"
+                                showClear
+                                filter
+                            />
+                            <Select
+                                v-model="creatorFilter"
+                                :options="props.creators"
+                                optionLabel="name"
+                                optionValue="id"
+                                placeholder="Người tạo"
                                 class="w-52"
                                 @change="applyFilters"
                                 showClear
@@ -232,10 +245,14 @@ import InputIcon from 'primevue/inputicon';
 // Define props
 const props = defineProps({
     reports: {
+        type: Object, // Paginated data: {data: [], current_page, last_page, etc}
+        default: () => ({data: []})
+    },
+    departments: {
         type: Array,
         default: () => []
     },
-    departments: {
+    creators: {
         type: Array,
         default: () => []
     },
@@ -246,12 +263,16 @@ const props = defineProps({
     statuses: {
         type: Object,
         default: () => ({})
+    },
+    filters: {
+        type: Object,
+        default: () => ({})
     }
 });
 
 // Reactive data
 const dt = ref();
-const reportsList = ref([...props.reports]);
+const reportsList = ref([...(props.reports?.data || [])]);
 const selectedReport = ref(null);
 const submitDialog = ref(false);
 const cloneDialog = ref(false);
@@ -260,10 +281,11 @@ const loading = ref(false);
 const submitting = ref(false);
 const cloning = ref(false);
 const deleting = ref(false);
-const searchQuery = ref('');
-const statusFilter = ref(null);
-const workflowTypeFilter = ref(null);
-const departmentFilter = ref(null);
+const searchQuery = ref(props.filters?.search || '');
+const statusFilter = ref(props.filters?.status || null);
+const workflowTypeFilter = ref(props.filters?.workflow_type || null);
+const departmentFilter = ref(props.filters?.department_id || null);
+const creatorFilter = ref(props.filters?.created_by || null);
 
 // Filter options from backend
 const statusOptions = Object.entries(props.statuses || {}).map(([value, label]) => ({
@@ -283,7 +305,7 @@ const filters = ref({
 
 // Watch for props changes
 watch(() => props.reports, (newReports) => {
-    reportsList.value = [...newReports];
+    reportsList.value = [...(newReports?.data || [])];
 }, { deep: true });
 
 // Helper functions
@@ -302,7 +324,7 @@ const canCloneReport = (report) => {
     // Kiểm tra:
     // 1. Phiếu ở trạng thái REJECTED
     // 2. User là creator
-    // 3. Phiếu chưa có phiếu con (children count = 0)
+    // 3. Phiếu chưa có phiếu con (children_count = 0)
 
     if (report.status !== 'REJECTED') {
         return false;
@@ -313,18 +335,34 @@ const canCloneReport = (report) => {
     const currentUserId = page.props.auth?.user?.id;
 
     // Kiểm tra user là creator
-    const creatorId = report.creator?.data?.id || report.creator?.id || report.created_by;
+    const creatorId = report.creator?.id || report.created_by;
     if (!currentUserId || !creatorId || currentUserId !== creatorId) {
         return false;
     }
 
-    // Kiểm tra chưa có phiếu con
-    const childrenCount = report.children?.data?.length || report.children?.length || 0;
-    if (childrenCount > 0) {
+    // Kiểm tra chưa có phiếu con - dùng children_count thay vì load children
+    if (report.children_count > 0) {
         return false;
     }
 
     return true;
+};
+
+const onPageChange = (event) => {
+    // event.page is 0-indexed, but Laravel paginate() uses 1-indexed pages
+    const page = event.page + 1;
+
+    router.get('/vendor-reports', {
+        page: page,
+        search: searchQuery.value,
+        status: statusFilter.value,
+        workflow_type: workflowTypeFilter.value,
+        department_id: departmentFilter.value,
+        created_by: creatorFilter.value,
+    }, {
+        preserveState: true,
+        preserveScroll: true,
+    });
 };
 
 const onSearch = () => {
@@ -332,11 +370,15 @@ const onSearch = () => {
 };
 
 const applyFilters = () => {
-    VendorReportService.index({
+    router.get('/vendor-reports', {
         search: searchQuery.value,
         status: statusFilter.value,
         workflow_type: workflowTypeFilter.value,
-        department_id: departmentFilter.value
+        department_id: departmentFilter.value,
+        created_by: creatorFilter.value,
+    }, {
+        preserveState: true,
+        preserveScroll: true,
     });
 };
 
