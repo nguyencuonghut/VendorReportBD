@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class VendorReport extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'code',
@@ -34,6 +33,15 @@ class VendorReport extends Model
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (VendorReport $report) {
+            $report->files()->each(function (VendorReportFile $file) {
+                $file->delete();
+            });
+        });
+    }
 
     // ⭐ Enum Label Methods - Để Resource sử dụng
     public function getWorkflowTypeLabel(): string
