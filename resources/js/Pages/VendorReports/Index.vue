@@ -99,7 +99,7 @@
                 <Column field="title" header="Tiêu đề" sortable style="min-width: 20rem"></Column>
                 <Column field="workflow_type_label" header="Quy trình" style="min-width: 12rem">
                     <template #body="slotProps">
-                        <Tag :value="slotProps.data.workflow_type_label" severity="info" />
+                        <Tag :value="slotProps.data.workflow_type_label" :severity="getWorkflowSeverity(slotProps.data.workflow_type)" />
                     </template>
                 </Column>
                 <Column field="status" header="Trạng thái" style="min-width: 14rem">
@@ -346,6 +346,17 @@ const canCloneReport = (report) => {
     }
 
     return true;
+};
+
+const getWorkflowSeverity = (workflowType) => {
+    const severityMap = {
+        'NORMAL': 'info',        // Xanh dương - Quy trình thông thường
+        'SPECIAL_1': 'warn',     // Cam - Quy trình qua 2 BOD
+        'SPECIAL_2': 'secondary', // Xám - Quy trình qua Khối Mua Hàng
+        'SPECIAL_3': 'contrast',  // Đen - Quy trình qua Ban Kỹ thuật
+        'URGENT': 'danger'       // Đỏ - Quy trình khẩn cấp
+    };
+    return severityMap[workflowType] || 'secondary';
 };
 
 const onPageChange = (event) => {
