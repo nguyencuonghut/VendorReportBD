@@ -8,7 +8,10 @@
         <div class="card mb-4">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="text-2xl font-bold mb-2">{{ reportData.title }}</h2>
+                    <div class="flex items-center gap-3 mb-2">
+                        <h2 class="text-2xl font-bold">{{ reportData.title }}</h2>
+                        <Tag v-if="reportData.revision_number > 1" :value="`Lần ${reportData.revision_number}`" severity="warn" class="text-sm" />
+                    </div>
                     <p class="text-gray-600">Mã phiếu: <strong>{{ reportData.code || 'Chưa có mã' }}</strong></p>
                 </div>
                 <div class="flex gap-2 items-center">
@@ -111,6 +114,18 @@
                             <div v-if="reportData.submitted_at">
                                 <p class="text-gray-600 mb-1">Ngày nộp:</p>
                                 <p class="font-semibold">{{ formatDate(reportData.submitted_at) }}</p>
+                            </div>
+
+                            <div v-if="reportData.parent_id">
+                                <p class="text-gray-600 mb-1">Số lần:</p>
+                                <Tag :value="`Lần ${reportData.revision_number}`" :severity="reportData.revision_number > 1 ? 'warn' : 'success'" />
+                            </div>
+
+                            <div v-if="reportData.parent_id">
+                                <p class="text-gray-600 mb-1">Sao chép từ phiếu:</p>
+                                <a :href="`/vendor-reports/${reportData.parent_id}`" class="text-blue-600 hover:underline font-semibold">
+                                    {{ reportData.parent?.data?.code || reportData.parent?.code }}
+                                </a>
                             </div>
                         </div>
 

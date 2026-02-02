@@ -37,6 +37,7 @@ class VendorReportResource extends JsonResource
             // Relationships
             'creator' => new UserResource($this->whenLoaded('creator')),
             'purchasing_admin' => new UserResource($this->whenLoaded('purchasingAdmin')),
+            'purchasing_admin_id' => $this->purchasing_admin_id,
             'current_step' => new VendorReportApprovalStepResource($this->whenLoaded('currentStep')),
             'approval_steps' => VendorReportApprovalStepResource::collection($this->whenLoaded('approvalSteps')),
             'files' => VendorReportFileResource::collection($this->whenLoaded('files')),
@@ -53,6 +54,9 @@ class VendorReportResource extends JsonResource
             'approved_at' => $this->approved_at,
             'rejected_at' => $this->rejected_at,
             'rejected_note' => $this->rejected_note,
+            'revision_number' => $this->revision_number,
+            'parent_id' => $this->parent_id,
+            'root_id' => $this->root_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,

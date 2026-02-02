@@ -24,6 +24,7 @@ class VendorReport extends Model
         'rejected_note',
         'parent_id',
         'root_id',
+        'revision_number',
     ];
 
     protected $casts = [
@@ -183,6 +184,25 @@ class VendorReport extends Model
 
     public function canBeCloned(): bool
     {
-        return $this->status === 'REJECTED';
+        // Chỉ clone được nếu: REJECTED và chưa có phiếu con
+        // Dùng relationLoaded để tránh query lại nếu đã load
+        $hasChildren = $this->relationLoaded('children')
+            ? $this->children->count() > 0
+            : $this->children()->exists();
+
+        return $this->status === 'REJECTED' && !$hasChildren;
+    }
+
+    public function getAllAncestors()
+    {
+        $ancestors = collect();
+        $current = $this->parent;
+
+        while ($current) {
+            $ancestors->push($current);
+            $current = $current->parent;
+        }
+
+        return $ancestors;
     }
 }

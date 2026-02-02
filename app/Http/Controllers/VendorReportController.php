@@ -43,7 +43,7 @@ class VendorReportController extends Controller
         ]);
 
         $reports = VendorReport::query()
-            ->with(['creator.department', 'purchasingAdmin', 'currentStep'])
+            ->with(['creator.department', 'purchasingAdmin', 'currentStep', 'children'])
             // Áp dụng logic phân quyền theo role
             ->when(true, function($q) use ($user) {
                 // Admin system: xem tất cả
@@ -269,6 +269,8 @@ class VendorReportController extends Controller
             'approvalSteps.assigneeUser',
             'approvalSteps.actedByUser',
             'files.uploader',
+            'parent',
+            'children', // Cần load để Policy kiểm tra canBeCloned()
         ]);
 
         // Get approval steps as resource
@@ -559,23 +561,58 @@ class VendorReportController extends Controller
         $this->authorize('clone', $vendorReport);
 
         if (!$vendorReport->canBeCloned()) {
-            return back()->with('error', 'Chỉ có thể tạo phiếu mới từ phiếu bị từ chối');
+            return back()->with('error', 'Phiếu này không thể clone (đã bị từ chối và đã có phiếu clone hoặc chưa bị từ chối)');
         }
 
+        // Tính revision_number: parent revision + 1
+        $newRevisionNumber = $vendorReport->revision_number + 1;
+        $rootId = $vendorReport->root_id ?? $vendorReport->id;
+
+        // Lấy title gốc (bỏ prefix [Lần X] nếu có)
+        $originalTitle = preg_replace('/^\[Lần \d+\]\s*/', '', $vendorReport->title);
+        $newTitle = "[Lần {$newRevisionNumber}] {$originalTitle}";
+
         $newReport = VendorReport::create([
-            'title' => $vendorReport->title . ' (Copy)',
+            'title' => $newTitle,
             'workflow_type' => $vendorReport->workflow_type,
             'purchasing_admin_id' => $vendorReport->purchasing_admin_id,
             'created_by' => auth()->id(),
             'status' => 'DRAFT',
             'parent_id' => $vendorReport->id,
-            'root_id' => $vendorReport->root_id ?? $vendorReport->id,
+            'root_id' => $rootId,
+            'revision_number' => $newRevisionNumber,
         ]);
+
+        // Copy activity logs từ tất cả các phiếu cha (root -> parent)
+        $ancestors = collect([$vendorReport]);
+        if ($vendorReport->parent_id) {
+            $ancestors = $ancestors->merge($vendorReport->getAllAncestors());
+        }
+
+        // Reverse để log từ cũ đến mới (root -> parent)
+        foreach ($ancestors->reverse() as $ancestor) {
+            $activities = \Spatie\Activitylog\Models\Activity::where('subject_type', VendorReport::class)
+                ->where('subject_id', $ancestor->id)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            foreach ($activities as $activity) {
+                activity()
+                    ->performedOn($newReport)
+                    ->causedBy($activity->causer_id)
+                    ->withProperties(array_merge(
+                        $activity->properties->toArray(),
+                        ['copied_from_revision' => $ancestor->revision_number]
+                    ))
+                    ->createdAt($activity->created_at)
+                    ->log($activity->description);
+            }
+        }
 
         $this->activityService->logClonedFromRejected($newReport, $vendorReport);
 
         return redirect()->route('vendor-reports.edit', $newReport)
-            ->with('success', 'Tạo phiếu mới từ phiếu bị từ chối thành công');
+            ->with('success', "Tạo phiếu lần {$newRevisionNumber} thành công");
     }
 
     /**

@@ -27,6 +27,7 @@ return new class extends Migration
             $table->text('rejected_note')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('vendor_reports')->nullOnDelete();
             $table->foreignId('root_id')->nullable()->constrained('vendor_reports')->nullOnDelete();
+            $table->integer('revision_number')->default(1); // Lần 1, 2, 3, ...
             $table->timestamps();
             $table->softDeletes();
 

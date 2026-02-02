@@ -195,6 +195,8 @@ class VendorReportActivityService
                 'cloned_from_id' => $originalReport->id,
                 'cloned_from_code' => $originalReport->code,
                 'cloned_from_title' => $originalReport->title,
+                'cloned_from_revision' => $originalReport->revision_number,
+                'new_revision' => $newReport->revision_number,
                 'original_status' => $originalReport->status,
             ])
             ->log('cloned_from_rejected');
@@ -376,8 +378,10 @@ class VendorReportActivityService
                 return "{$label}: Đã hoàn thành {$approved}/{$total} bước phê duyệt";
 
             case 'cloned_from_rejected':
-                $code = $properties['cloned_from_code'] ?? ($properties['cloned_from'] ?? 'N/A');
-                return "{$label}: Từ phiếu {$code}";
+                $fromRevision = $properties['cloned_from_revision'] ?? '?';
+                $toRevision = $properties['new_revision'] ?? '?';
+                $code = $properties['cloned_from_code'] ?? 'N/A';
+                return "{$label}: Từ phiếu {$code} (Lần {$fromRevision}) → Tạo phiếu Lần {$toRevision}";
 
             case 'deleted':
                 $code = $properties['code'] ?? 'N/A';

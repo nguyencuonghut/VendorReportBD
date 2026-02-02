@@ -139,13 +139,12 @@ class VendorReportPolicy
      */
     public function clone(User $user, VendorReport $vendorReport): bool
     {
-        // Creator hoặc purchasing admin có thể clone từ phiếu REJECTED
+        // Chỉ creator có thể clone từ phiếu REJECTED
+        // Mỗi phiếu chỉ được clone 1 lần (kiểm tra trong canBeCloned() method)
         return $user->is_active &&
                $vendorReport->status === 'REJECTED' &&
-               (
-                   $user->id === $vendorReport->created_by ||
-                   $user->id === $vendorReport->purchasing_admin_id
-               );
+               $user->id === $vendorReport->created_by &&
+               $vendorReport->canBeCloned(); // Kiểm tra không có phiếu con
     }
 
     /**

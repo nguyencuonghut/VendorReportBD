@@ -147,7 +147,7 @@
 
                             <!-- Clone button (only for REJECTED) -->
                             <Button
-                                v-if="slotProps.data.status === 'REJECTED'"
+                                v-if="canCloneReport(slotProps.data)"
                                 icon="pi pi-copy"
                                 variant="outlined"
                                 rounded
@@ -215,7 +215,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { VendorReportService } from '@/services';
 
 import DataTable from 'primevue/datatable';
@@ -296,6 +296,35 @@ const formatDate = (dateString) => {
         hour: '2-digit',
         minute: '2-digit'
     });
+};
+
+const canCloneReport = (report) => {
+    // Kiểm tra:
+    // 1. Phiếu ở trạng thái REJECTED
+    // 2. User là creator
+    // 3. Phiếu chưa có phiếu con (children count = 0)
+
+    if (report.status !== 'REJECTED') {
+        return false;
+    }
+
+    // Lấy user hiện tại từ usePage (Inertia shared data)
+    const page = usePage();
+    const currentUserId = page.props.auth?.user?.id;
+
+    // Kiểm tra user là creator
+    const creatorId = report.creator?.data?.id || report.creator?.id || report.created_by;
+    if (!currentUserId || !creatorId || currentUserId !== creatorId) {
+        return false;
+    }
+
+    // Kiểm tra chưa có phiếu con
+    const childrenCount = report.children?.data?.length || report.children?.length || 0;
+    if (childrenCount > 0) {
+        return false;
+    }
+
+    return true;
 };
 
 const onSearch = () => {
