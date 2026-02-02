@@ -16,9 +16,7 @@ const model = computed(() => {
         {
             label: 'Quản lý phiếu',
             items: [
-                { label: 'Phiếu đề nghị', icon: 'pi pi-fw pi-file-edit', to: '/vendor-reports' },
-                { label: 'Phiếu của tôi', icon: 'pi pi-fw pi-user-edit', to: '/vendor-reports?filter=my-reports' },
-                { label: 'Chờ phê duyệt', icon: 'pi pi-fw pi-clock', to: '/vendor-reports?filter=pending-approval' },
+                { label: 'Danh sách phiếu', icon: 'pi pi-fw pi-file-edit', to: '/vendor-reports' },
             ]
         },
     ];

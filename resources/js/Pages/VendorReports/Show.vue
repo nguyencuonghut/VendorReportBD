@@ -342,12 +342,26 @@
                         </Column>
                         <Column field="description_formatted" header="Hoạt động" style="min-width: 300px">
                             <template #body="slotProps">
-                                <div class="space-y-1">
-                                    <div>
-                                        <Tag :value="slotProps.data.description_label" severity="info" class="mb-1" />
+                                <div class="space-y-2">
+                                    <!-- Tiêu đề hành động -->
+                                    <div class="flex items-center gap-2">
+                                        <Tag :value="slotProps.data.description_label" severity="info" class="font-bold" />
                                     </div>
-                                    <div class="text-sm text-gray-700 whitespace-pre-line">
-                                        {{ slotProps.data.description_formatted }}
+                                    <!-- Chi tiết hành động -->
+                                    <div v-if="slotProps.data.description_formatted" class="text-sm text-gray-700 bg-gray-50 p-3 rounded border space-y-1">
+                                        <!-- Parse và hiển thị từng dòng với severity cho Kết quả -->
+                                        <div v-for="(line, index) in slotProps.data.description_formatted.split('\n')" :key="index">
+                                            <!-- Nếu là dòng Kết quả, hiển thị với Tag -->
+                                            <div v-if="line.includes('• Kết quả:')" class="flex items-center gap-2">
+                                                <span>• Kết quả:</span>
+                                                <Tag
+                                                    :value="slotProps.data.properties?.result_label || line.split('• Kết quả:')[1]?.trim()"
+                                                    :severity="slotProps.data.properties?.result === 'APPROVED' ? 'success' : slotProps.data.properties?.result === 'REJECTED' ? 'danger' : 'info'"
+                                                />
+                                            </div>
+                                            <!-- Các dòng khác hiển thị bình thường -->
+                                            <div v-else>{{ line }}</div>
+                                        </div>
                                     </div>
                                 </div>
                             </template>

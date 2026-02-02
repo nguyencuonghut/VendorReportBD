@@ -5,12 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
 
 class VendorReport extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'code',
@@ -186,14 +184,5 @@ class VendorReport extends Model
     public function canBeCloned(): bool
     {
         return $this->status === 'REJECTED';
-    }
-
-    // Activity Log
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'title', 'workflow_type', 'status'])
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
     }
 }

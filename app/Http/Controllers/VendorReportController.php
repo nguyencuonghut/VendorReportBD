@@ -30,53 +30,37 @@ class VendorReportController extends Controller
 
         $user = auth()->user();
 
+        \Log::info('VendorReport Index - User Info', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'user_roles' => $user->roles->pluck('name')->toArray(),
+            'department_id' => $user->department_id,
+            'department' => $user->department ? [
+                'id' => $user->department->id,
+                'name' => $user->department->name,
+                'head_user_id' => $user->department->head_user_id,
+            ] : null,
+        ]);
+
         $reports = VendorReport::query()
             ->with(['creator.department', 'purchasingAdmin', 'currentStep'])
-            ->when($request->filter === 'my-reports', function($q) use ($user) {
-                // Filter: Phiếu của tôi - chỉ xem phiếu mình tạo
-                $q->where('created_by', $user->id);
-            })
-            ->when($request->filter === 'pending-approval', function($q) use ($user) {
-                // Filter: Chờ phê duyệt - phiếu đang chờ mình duyệt
-                $q->where('status', 'IN_APPROVAL')
-                  ->whereHas('currentStep', function($query) use ($user) {
-                      $query->where(function($q) use ($user) {
-                          // Trường hợp 1: Đã được assign cụ thể cho user
-                          $q->where('assignee_user_id', $user->id)
-                            // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                            ->orWhere(function($q2) use ($user) {
-                                $q2->whereNull('assignee_user_id');
-
-                                // Check role của user và match với assignee_role
-                                $userRoles = $user->roles->pluck('name')->toArray();
-                                $q2->whereIn('assignee_role', $userRoles);
-                            });
-                      });
-                  });
-            })
-            ->when(!$request->filter, function($q) use ($user) {
-                // Không có filter: áp dụng logic phân quyền mặc định
-
+            // Áp dụng logic phân quyền theo role
+            ->when(true, function($q) use ($user) {
                 // Admin system: xem tất cả
                 if ($user->hasRole('admin_system')) {
                     return;
                 }
 
-                // Requester: chỉ xem phiếu của mình
-                if ($user->hasRole('requester')) {
-                    $q->where('created_by', $user->id);
-                    return;
-                }
-
-                // Purchasing Admin: xem phiếu được gán (trừ DRAFT)
-                if ($user->hasRole('purchasing_admin')) {
-                    $q->where('purchasing_admin_id', $user->id)
-                      ->where('status', '!=', 'DRAFT');
-                    return;
-                }
-
-                // Trưởng phòng: xem phiếu của phòng mình hoặc phiếu cần duyệt
+                // Trưởng phòng: xem phiếu của phòng mình hoặc phiếu cần duyệt hoặc đã duyệt
+                // CHECK TRƯỚC requester vì Trưởng phòng có thể có role requester nhưng quyền cao hơn
                 if ($user->department_id && $user->department->head_user_id === $user->id) {
+                    \Log::info('Department Head Query', [
+                        'user_id' => $user->id,
+                        'user_name' => $user->name,
+                        'department_id' => $user->department_id,
+                        'head_user_id' => $user->department->head_user_id,
+                    ]);
+
                     $q->where(function($query) use ($user) {
                         // Phiếu của nhân viên cùng phòng
                         $query->whereHas('creator', fn($q) => $q->where('department_id', $user->department_id))
@@ -94,13 +78,32 @@ class VendorReportController extends Controller
                                              $q3->whereIn('assignee_role', $userRoles);
                                          });
                                   });
+                              })
+                              // Hoặc phiếu mà mình đã duyệt/từ chối
+                              ->orWhereHas('approvalSteps', function($q) use ($user) {
+                                  $q->where('acted_by', $user->id)
+                                    ->whereIn('status', ['APPROVED', 'REJECTED']);
                               });
                     });
                     return;
                 }
 
-                // Approver roles: xem phiếu cần mình duyệt hoặc đã duyệt
-                if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
+                // Requester: chỉ xem phiếu của mình
+                if ($user->hasRole('requester')) {
+                    $q->where('created_by', $user->id);
+                    return;
+                }
+
+                // Purchasing Admin: xem phiếu được gán (trừ DRAFT)
+                if ($user->hasRole('purchasing_admin')) {
+                    $q->where('purchasing_admin_id', $user->id)
+                      ->where('status', '!=', 'DRAFT');
+                    return;
+                }
+
+                // Các role duyệt khác: xem phiếu cần duyệt hoặc đã duyệt
+                $approverRoles = ['internal_control', 'national_purchasing', 'tech_board', 'bod'];
+                if ($user->hasAnyRole($approverRoles)) {
                     $q->where(function($query) use ($user) {
                         // Phiếu cần mình duyệt
                         $query->whereHas('currentStep', function($q) use ($user) {
@@ -152,7 +155,7 @@ class VendorReportController extends Controller
             'departments' => $departments,
             'workflows' => VendorReport::getWorkflowTypesWithLabels(),
             'statuses' => VendorReport::getStatusLabels(),
-            'filters' => $request->only(['filter', 'status', 'workflow_type', 'department_id', 'search']),
+            'filters' => $request->only(['status', 'workflow_type', 'department_id', 'search']),
         ]);
     }
 

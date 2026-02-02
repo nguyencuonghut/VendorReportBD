@@ -125,14 +125,21 @@ class VendorReportActivityService
      */
     public function logApproved(VendorReport $report, User $approver, ?string $note = null, ?int $stepOrder = null): void
     {
+        // Get step info
+        $step = $report->approvalSteps()->where('step_order', $stepOrder)->first();
+
         activity()
             ->performedOn($report)
             ->causedBy($approver)
             ->withProperties([
                 'step_order' => $stepOrder,
-                'step_role' => $report->currentStep?->role_key,
+                'step_key' => $step?->step_key,
+                'step_label' => $step?->getStepKeyLabel(),
+                'result' => 'APPROVED',
+                'result_label' => 'Đồng ý',
                 'note' => $note,
                 'approved_at' => now()->toISOString(),
+                'approver_name' => $approver->name,
             ])
             ->log('approved');
     }
@@ -142,14 +149,21 @@ class VendorReportActivityService
      */
     public function logRejected(VendorReport $report, User $rejector, string $note, ?int $stepOrder = null): void
     {
+        // Get step info
+        $step = $report->approvalSteps()->where('step_order', $stepOrder)->first();
+
         activity()
             ->performedOn($report)
             ->causedBy($rejector)
             ->withProperties([
                 'step_order' => $stepOrder,
-                'step_role' => $report->currentStep?->role_key,
+                'step_key' => $step?->step_key,
+                'step_label' => $step?->getStepKeyLabel(),
+                'result' => 'REJECTED',
+                'result_label' => 'Từ chối',
                 'rejection_note' => $note,
                 'rejected_at' => now()->toISOString(),
+                'rejector_name' => $rejector->name,
             ])
             ->log('rejected');
     }
@@ -321,8 +335,16 @@ class VendorReportActivityService
             case 'approved':
             case 'step_approved':
                 $text = $label;
-                if (isset($properties['step_order'])) {
+                if (isset($properties['step_label'])) {
+                    $text .= " - {$properties['step_label']}";
+                } elseif (isset($properties['step_order'])) {
                     $text .= " - Bước {$properties['step_order']}";
+                }
+                if (isset($properties['result_label'])) {
+                    $text .= "\n• Kết quả: {$properties['result_label']}";
+                }
+                if (isset($properties['approver_name'])) {
+                    $text .= "\n• Người duyệt: {$properties['approver_name']}";
                 }
                 if (isset($properties['note']) && !empty($properties['note'])) {
                     $text .= "\n• Ghi chú: {$properties['note']}";
@@ -332,8 +354,16 @@ class VendorReportActivityService
             case 'rejected':
             case 'step_rejected':
                 $text = $label;
-                if (isset($properties['step_order'])) {
+                if (isset($properties['step_label'])) {
+                    $text .= " - {$properties['step_label']}";
+                } elseif (isset($properties['step_order'])) {
                     $text .= " - Bước {$properties['step_order']}";
+                }
+                if (isset($properties['result_label'])) {
+                    $text .= "\n• Kết quả: {$properties['result_label']}";
+                }
+                if (isset($properties['rejector_name'])) {
+                    $text .= "\n• Người từ chối: {$properties['rejector_name']}";
                 }
                 if (isset($properties['rejection_note'])) {
                     $text .= "\n• Lý do: {$properties['rejection_note']}";

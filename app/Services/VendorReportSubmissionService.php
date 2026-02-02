@@ -59,13 +59,16 @@ class VendorReportSubmissionService
             // 3. Build workflow steps
             $this->workflowBuilder->buildSteps($report);
 
-            // 4. Reload để lấy current_step_id đã được set
+            // 4. Auto-approve các steps mà creator có quyền duyệt
+            $this->autoApproveCreatorSteps($report, $creator);
+
+            // 5. Reload để lấy current_step_id đã được update
             $report->refresh();
 
-            // 5. Log activity
+            // 6. Log activity
             $this->activityService->logSubmitted($report);
 
-            // 6. Send notification to first step assignee(s)
+            // 7. Send notification to first step assignee(s)
             if ($report->currentStep) {
                 if ($report->currentStep->assigneeUser) {
                     // Đã có assignee cụ thể → gửi cho người đó
@@ -81,5 +84,60 @@ class VendorReportSubmissionService
 
             return $report;
         });
+    }
+
+    /**
+     * Auto-approve các steps mà creator có quyền duyệt
+     * Ví dụ: Trưởng phòng tạo phiếu → bước DEPT_HEAD tự động approved
+     */
+    private function autoApproveCreatorSteps($report, $creator): void
+    {
+        $steps = $report->approvalSteps()->orderBy('step_order')->get();
+        $creatorRoles = $creator->roles->pluck('name')->toArray();
+
+        foreach ($steps as $step) {
+            // Check xem creator có quyền duyệt step này không
+            $canApprove = false;
+
+            // Trường hợp 1: Assignee cụ thể là creator
+            if ($step->assignee_user_id === $creator->id) {
+                $canApprove = true;
+            }
+
+            // Trường hợp 2: Assignee role khớp với role của creator
+            if (!$step->assignee_user_id && $step->assignee_role && in_array($step->assignee_role, $creatorRoles)) {
+                $canApprove = true;
+            }
+
+            if ($canApprove) {
+                // Tự động approve step này
+                $step->update([
+                    'status' => 'APPROVED',
+                    'assignee_user_id' => $creator->id, // Gán assignee nếu chưa có
+                    'acted_by' => $creator->id,
+                    'acted_at' => now(),
+                    'note' => 'Tự động phê duyệt (người tạo phiếu có quyền duyệt bước này)',
+                ]);
+
+                // Log activity
+                $this->activityService->logApproved($report, $creator, 'Tự động phê duyệt', $step->step_order);
+            } else {
+                // Gặp step không thể auto-approve → dừng lại
+                // Update current_step_id
+                $report->update(['current_step_id' => $step->id]);
+                break;
+            }
+        }
+
+        // Nếu tất cả steps đều auto-approved → phiếu APPROVED luôn
+        $allApproved = $report->approvalSteps()->where('status', '!=', 'APPROVED')->count() === 0;
+        if ($allApproved) {
+            $report->update([
+                'status' => 'APPROVED',
+                'approved_at' => now(),
+                'current_step_id' => null,
+            ]);
+            $this->activityService->logCompleted($report);
+        }
     }
 }

@@ -42,7 +42,7 @@ class VendorReportPolicy
             return true;
         }
 
-        // Trưởng phòng: xem phiếu của nhân viên trong phòng và phiếu cần mình duyệt
+        // Trưởng phòng: xem phiếu của nhân viên trong phòng và phiếu cần mình duyệt và đã duyệt
         if ($this->isDepartmentHead($user)) {
             // Xem phiếu của nhân viên trong phòng
             if ($this->isReportFromSameDepartment($user, $vendorReport)) {
@@ -50,6 +50,10 @@ class VendorReportPolicy
             }
             // Hoặc phiếu cần mình duyệt
             if ($this->isCurrentApprover($user, $vendorReport)) {
+                return true;
+            }
+            // Hoặc phiếu mà mình đã duyệt/từ chối
+            if ($this->hasParticipatedInApproval($user, $vendorReport)) {
                 return true;
             }
         }
