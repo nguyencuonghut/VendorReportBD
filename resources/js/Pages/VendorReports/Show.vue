@@ -183,6 +183,14 @@
                         <h3 class="text-xl font-bold mb-4">Tiến trình phê duyệt</h3>
 
                         <Timeline :value="props.approvalSteps" class="customized-timeline">
+                            <template #opposite="slotProps">
+                                <div class="text-right pr-4 text-sm text-gray-500">
+                                    <div class="font-semibold">Bước {{ slotProps.item.step_order }}</div>
+                                    <div v-if="slotProps.item.acted_at">
+                                        {{ formatDate(slotProps.item.acted_at) }}
+                                    </div>
+                                </div>
+                            </template>
                             <template #marker="slotProps">
                                 <span class="flex items-center justify-center text-white rounded-full z-1 shadow-sm"
                                       :class="{
