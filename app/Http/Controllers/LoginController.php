@@ -25,7 +25,7 @@ class LoginController extends Controller
                 'last_login_at' => now(),
             ]);
 
-            return redirect()->intended('/')->with([
+            return redirect()->intended('/dashboard')->with([
                 'message' => 'auth.loginSuccess',
                 'type' => 'success'
             ]);

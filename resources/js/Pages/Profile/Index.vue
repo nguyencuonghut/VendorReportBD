@@ -126,7 +126,6 @@
                                     toggleMask
                                     :invalid="!!errors.current_password"
                                     :disabled="processingPassword"
-                                    required="true"
                                     inputClass="w-full"
                                     class="w-full"
                                 />
@@ -144,7 +143,6 @@
                                     toggleMask
                                     :invalid="!!errors.password"
                                     :disabled="processingPassword"
-                                    required="true"
                                     inputClass="w-full"
                                     class="w-full"
                                 >
@@ -175,7 +173,6 @@
                                     toggleMask
                                     :invalid="!!errors.password_confirmation"
                                     :disabled="processingPassword"
-                                    required="true"
                                     inputClass="w-full"
                                     class="w-full"
                                 />

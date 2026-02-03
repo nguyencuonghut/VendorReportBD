@@ -30,11 +30,14 @@ Route::group(['middleware' => 'auth'], function () {
 });
 
 
-Route::group(['middleware' => 'auth'], function () {
-    Route::get('/', function () {
-        return Inertia::render('Home');
-    });
+// Root Route - Redirect to Dashboard or Login
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect('/dashboard')
+        : redirect('/login');
+});
 
+Route::group(['middleware' => 'auth'], function () {
     // Dashboard Routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::prefix('api/dashboard')->group(function () {

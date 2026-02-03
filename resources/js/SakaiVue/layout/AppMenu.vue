@@ -12,7 +12,6 @@ const model = computed(() => {
         {
             label: 'Trang chủ',
             items: [
-                { label: 'Trang chủ', icon: 'pi pi-fw pi-home', to: '/' },
                 { label: 'Dashboard', icon: 'pi pi-fw pi-chart-line', to: '/dashboard' }
             ]
         },
