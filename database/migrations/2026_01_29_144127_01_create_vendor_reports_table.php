@@ -18,13 +18,15 @@ return new class extends Migration
             $table->enum('workflow_type', ['NORMAL', 'SPECIAL_1', 'SPECIAL_2', 'SPECIAL_3', 'URGENT']);
             $table->foreignId('purchasing_admin_id')->nullable()->constrained('users')->nullOnDelete(); // CHỈ ĐỂ THEO DÕI, KHÔNG NẰM TRONG WORKFLOW
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
-            $table->enum('status', ['DRAFT', 'SUBMITTED', 'IN_APPROVAL', 'APPROVED', 'REJECTED'])->default('DRAFT');
+            $table->enum('status', ['DRAFT', 'SUBMITTED', 'IN_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELED'])->default('DRAFT');
             // ⚠️ KHÔNG thêm current_step_id ở đây vì circular dependency
             // Sẽ thêm sau khi vendor_report_approval_steps đã tồn tại
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('rejected_at')->nullable();
+            $table->timestamp('canceled_at')->nullable();
             $table->text('rejected_note')->nullable();
+            $table->text('canceled_reason')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('vendor_reports')->nullOnDelete();
             $table->foreignId('root_id')->nullable()->constrained('vendor_reports')->nullOnDelete();
             $table->integer('revision_number')->default(1); // Lần 1, 2, 3, ...

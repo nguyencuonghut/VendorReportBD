@@ -56,6 +56,7 @@ Route::group(['middleware' => 'auth'], function () {
     Route::post('vendor-reports/{vendorReport}/submit', [VendorReportController::class, 'submit'])->name('vendor-reports.submit');
     Route::post('vendor-reports/{vendorReport}/approve', [VendorReportController::class, 'approve'])->name('vendor-reports.approve');
     Route::post('vendor-reports/{vendorReport}/reject', [VendorReportController::class, 'reject'])->name('vendor-reports.reject');
+    Route::post('vendor-reports/{vendorReport}/cancel', [VendorReportController::class, 'cancel'])->name('vendor-reports.cancel');
     Route::post('vendor-reports/{vendorReport}/clone', [VendorReportController::class, 'clone'])->name('vendor-reports.clone');
     Route::get('vendor-reports/files/{file}/view', [VendorReportController::class, 'viewFile'])->name('vendor-reports.files.view');
     Route::get('vendor-reports/files/{file}/download', [VendorReportController::class, 'downloadFile'])->name('vendor-reports.files.download');

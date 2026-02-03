@@ -220,6 +220,24 @@ class VendorReportActivityService
     }
 
     /**
+     * Log activity khi hủy phiếu
+     */
+    public function logCanceled(VendorReport $report, User $admin, string $reason): void
+    {
+        activity()
+            ->performedOn($report)
+            ->causedBy($admin)
+            ->withProperties([
+                'code' => $report->code,
+                'title' => $report->title,
+                'reason' => $reason,
+                'canceled_at' => now()->toISOString(),
+                'admin_name' => $admin->name,
+            ])
+            ->log('canceled');
+    }
+
+    /**
      * Get activity labels in Vietnamese
      */
     public static function getActivityLabels(): array
@@ -235,6 +253,7 @@ class VendorReportActivityService
             'completed' => 'Hoàn thành',
             'cloned_from_rejected' => 'Sao chép từ phiếu bị từ chối',
             'deleted' => 'Xóa phiếu',
+            'canceled' => 'Hủy phiếu',
         ];
     }
 
@@ -387,6 +406,18 @@ class VendorReportActivityService
                 $code = $properties['code'] ?? 'N/A';
                 $title = $properties['title'] ?? '';
                 return "{$label}: {$code}" . ($title ? " - {$title}" : '');
+
+            case 'canceled':
+                $code = $properties['code'] ?? 'N/A';
+                $title = $properties['title'] ?? '';
+                $text = "{$label}: {$code}" . ($title ? " - {$title}" : '');
+                if (isset($properties['admin_name'])) {
+                    $text .= "\n• Người hủy: {$properties['admin_name']}";
+                }
+                if (isset($properties['reason'])) {
+                    $text .= "\n• Lý do: {$properties['reason']}";
+                }
+                return $text;
 
             default:
                 return $label;

@@ -66,6 +66,15 @@
                     icon="pi pi-copy"
                     @click="confirmClone"
                 />
+
+                <!-- Cancel button (admin only) -->
+                <Button
+                    v-if="reportData.status !== 'CANCELED' && canCancel"
+                    label="Hủy phiếu"
+                    icon="pi pi-ban"
+                    severity="danger"
+                    @click="confirmCancel"
+                />
             </div>
         </div>
 
@@ -114,6 +123,16 @@
                             <div v-if="reportData.submitted_at">
                                 <p class="text-gray-600 mb-1">Ngày nộp:</p>
                                 <p class="font-semibold">{{ formatDate(reportData.submitted_at) }}</p>
+                            </div>
+
+                            <div v-if="reportData.canceled_at">
+                                <p class="text-gray-600 mb-1">Ngày hủy:</p>
+                                <p class="font-semibold text-red-600">{{ formatDate(reportData.canceled_at) }}</p>
+                            </div>
+
+                            <div v-if="reportData.canceled_reason">
+                                <p class="text-gray-600 mb-1">Lý do hủy:</p>
+                                <p class="font-semibold text-red-600">{{ reportData.canceled_reason }}</p>
                             </div>
 
                             <div v-if="reportData.parent_id">
@@ -475,6 +494,32 @@
                 <Button label="Sao chép" icon="pi pi-copy" @click="cloneReport" :loading="cloning" />
             </template>
         </Dialog>
+
+        <!-- Cancel Confirmation Dialog -->
+        <Dialog v-model:visible="cancelDialog" :style="{ width: '500px' }" header="Hủy phiếu" :modal="true">
+            <div class="flex flex-col gap-4">
+                <div class="flex items-center gap-3">
+                    <i class="pi pi-exclamation-triangle !text-2xl text-red-500" />
+                    <span>Phiếu sẽ bị hủy và dừng quy trình phê duyệt.</span>
+                </div>
+
+                <div>
+                    <label for="cancel_reason" class="block font-bold mb-3">Lý do hủy <span class="text-red-500">*</span></label>
+                    <Textarea
+                        id="cancel_reason"
+                        v-model="cancelForm.reason"
+                        rows="4"
+                        fluid
+                        placeholder="Nhập lý do hủy (bắt buộc)..."
+                    />
+                    <small v-if="cancelSubmitted && !cancelForm.reason" class="text-red-500 block mt-1">Lý do hủy là bắt buộc</small>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Hủy" icon="pi pi-times" text @click="cancelDialog = false" />
+                <Button label="Xác nhận hủy" icon="pi pi-ban" severity="danger" @click="cancelReport" :loading="canceling" />
+            </template>
+        </Dialog>
     </div>
 </template>
 
@@ -540,6 +585,10 @@ const props = defineProps({
     canClone: {
         type: Boolean,
         default: false
+    },
+    canCancel: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -548,11 +597,14 @@ const submitDialog = ref(false);
 const approvalDialog = ref(false);
 const rejectionDialog = ref(false);
 const cloneDialog = ref(false);
+const cancelDialog = ref(false);
 const submitting = ref(false);
 const approving = ref(false);
 const rejecting = ref(false);
 const cloning = ref(false);
+const canceling = ref(false);
 const rejectionSubmitted = ref(false);
+const cancelSubmitted = ref(false);
 
 const approvalForm = ref({
     selected_next_approver_id: null,
@@ -561,6 +613,10 @@ const approvalForm = ref({
 
 const rejectionForm = ref({
     rejection_note: ''
+});
+
+const cancelForm = ref({
+    reason: ''
 });
 
 // Computed
@@ -697,6 +753,12 @@ const confirmClone = () => {
     cloneDialog.value = true;
 };
 
+const confirmCancel = () => {
+    cancelSubmitted.value = false;
+    cancelForm.value.reason = '';
+    cancelDialog.value = true;
+};
+
 const cloneReport = () => {
     VendorReportService.clone(reportData.value.id, {
         onStart: () => {
@@ -708,6 +770,33 @@ const cloneReport = () => {
         },
         onError: () => {
             cloning.value = false;
+        }
+    });
+};
+
+const cancelReport = () => {
+    cancelSubmitted.value = true;
+    if (!cancelForm.value.reason) {
+        return;
+    }
+
+    VendorReportService.cancel(reportData.value.id, {
+        reason: cancelForm.value.reason
+    }, {
+        onStart: () => {
+            canceling.value = true;
+        },
+        onSuccess: () => {
+            canceling.value = false;
+            cancelDialog.value = false;
+            cancelForm.value.reason = '';
+            cancelSubmitted.value = false;
+        },
+        onError: () => {
+            canceling.value = false;
+        },
+        onFinish: () => {
+            canceling.value = false;
         }
     });
 };

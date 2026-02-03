@@ -56,6 +56,8 @@ class VendorReportResource extends JsonResource
             'approved_at' => $this->approved_at,
             'rejected_at' => $this->rejected_at,
             'rejected_note' => $this->rejected_note,
+            'canceled_at' => $this->canceled_at,
+            'canceled_reason' => $this->canceled_reason,
             'revision_number' => $this->revision_number,
             'parent_id' => $this->parent_id,
             'root_id' => $this->root_id,

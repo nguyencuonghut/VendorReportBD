@@ -148,6 +148,14 @@ class VendorReportPolicy
     }
 
     /**
+     * Determine whether the user can cancel the model.
+     */
+    public function cancel(User $user, VendorReport $vendorReport): bool
+    {
+        return $user->hasRole('admin_system');
+    }
+
+    /**
      * Determine whether the user can restore the model.
      */
     public function restore(User $user, VendorReport $vendorReport): bool

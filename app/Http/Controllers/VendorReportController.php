@@ -311,6 +311,7 @@ class VendorReportController extends Controller
         $canSubmit = auth()->user()->can('submit', $vendorReport);
         $canApprove = auth()->user()->can('approve', $vendorReport);
         $canClone = auth()->user()->can('clone', $vendorReport);
+        $canCancel = auth()->user()->can('cancel', $vendorReport);
 
         // Get selectable approvers if current step requires selection
         $selectableApprovers = [];
@@ -367,6 +368,7 @@ class VendorReportController extends Controller
             'canSubmit' => $canSubmit,
             'canApprove' => $canApprove,
             'canClone' => $canClone,
+            'canCancel' => $canCancel,
         ]);
     }
 
@@ -573,6 +575,33 @@ class VendorReportController extends Controller
 
             return redirect()->route('vendor-reports.show', $vendorReport)
                 ->with('success', 'Từ chối phiếu thành công');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Cancel phiếu (admin only)
+     */
+    public function cancel(Request $request, VendorReport $vendorReport)
+    {
+        $this->authorize('cancel', $vendorReport);
+
+        $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'reason.required' => 'Lý do hủy là bắt buộc',
+        ]);
+
+        try {
+            $this->approvalService->cancel(
+                $vendorReport,
+                auth()->user(),
+                $request->reason
+            );
+
+            return redirect()->route('vendor-reports.show', $vendorReport)
+                ->with('success', 'Hủy phiếu thành công');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }

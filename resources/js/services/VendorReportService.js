@@ -250,6 +250,36 @@ export class VendorReportService {
     }
 
     /**
+     * Cancel a vendor report (admin only)
+     * @param {number} reportId - Vendor report ID to cancel
+     * @param {Object} cancelData - Cancel data (reason)
+     * @param {Object} options - Additional options
+     */
+    static cancel(reportId, cancelData, options = {}) {
+        const { onStart, onFinish, onError, onSuccess } = options;
+
+        router.post(`/vendor-reports/${reportId}/cancel`, cancelData, {
+            onStart: () => {
+                if (onStart) onStart();
+            },
+            onFinish: () => {
+                if (onFinish) onFinish();
+            },
+            onError: (errors) => {
+                if (errors.message) {
+                    ToastService.error(errors.message);
+                } else {
+                    ToastService.error('Có lỗi xảy ra khi hủy phiếu!');
+                }
+                if (onError) onError(errors);
+            },
+            onSuccess: (page) => {
+                if (onSuccess) onSuccess(page);
+            }
+        });
+    }
+
+    /**
      * Clone a vendor report
      * @param {number} reportId - Vendor report ID to clone
      * @param {Object} options - Additional options

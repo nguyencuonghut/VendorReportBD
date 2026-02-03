@@ -64,6 +64,7 @@ class VendorReport extends Model
             'IN_APPROVAL' => 'Đang duyệt',
             'APPROVED' => 'Đã duyệt',
             'REJECTED' => 'Từ chối',
+            'CANCELED' => 'Hủy',
             default => $this->status,
         };
     }
@@ -76,6 +77,7 @@ class VendorReport extends Model
             'IN_APPROVAL' => 'warn',
             'APPROVED' => 'success',
             'REJECTED' => 'danger',
+            'CANCELED' => 'secondary',
             default => 'secondary',
         };
     }
@@ -99,6 +101,7 @@ class VendorReport extends Model
             'IN_APPROVAL' => 'Đang duyệt',
             'APPROVED' => 'Đã duyệt',
             'REJECTED' => 'Từ chối',
+            'CANCELED' => 'Hủy',
         ];
     }
 

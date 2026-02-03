@@ -7,6 +7,7 @@ use App\Models\VendorReportApprovalStep;
 use App\Models\User;
 use App\Notifications\VendorReportApprovalRequired;
 use App\Notifications\VendorReportApproved;
+use App\Notifications\VendorReportCanceled;
 use App\Notifications\VendorReportRejected;
 use Illuminate\Support\Facades\DB;
 
@@ -175,6 +176,57 @@ class VendorReportApprovalService
             if ($report->purchasingAdmin && $report->purchasingAdmin->id !== $report->creator->id) {
                 $report->purchasingAdmin->notify(new VendorReportRejected($report, $currentStep, $rejectionNote));
             }
+
+            return $report->refresh();
+        });
+    }
+
+    /**
+     * Admin hủy phiếu
+     */
+    public function cancel(
+        VendorReport $report,
+        User $admin,
+        string $reason
+    ): VendorReport {
+        if ($report->status === 'CANCELED') {
+            throw new \Exception('Phiếu đã ở trạng thái Hủy');
+        }
+
+        return DB::transaction(function () use ($report, $admin, $reason) {
+            // Update report status
+            $report->update([
+                'status' => 'CANCELED',
+                'current_step_id' => null,
+                'canceled_at' => now(),
+                'canceled_reason' => $reason,
+            ]);
+
+            // Mark pending steps as skipped
+            $report->approvalSteps()
+                ->where('status', 'PENDING')
+                ->update([
+                    'status' => 'SKIPPED',
+                    'acted_by' => null,
+                    'acted_at' => null,
+                    'note' => null,
+                ]);
+
+            // Notify all users who have acted on this report (creator + approvers)
+            $actorIds = collect([$report->created_by])
+                ->merge($report->approvalSteps()->whereNotNull('acted_by')->pluck('acted_by'))
+                ->unique()
+                ->filter();
+
+            if ($actorIds->isNotEmpty()) {
+                $actors = User::whereIn('id', $actorIds)->get();
+                foreach ($actors as $actor) {
+                    $actor->notify(new VendorReportCanceled($report, $admin, $reason));
+                }
+            }
+
+            // Log activity
+            $this->activityService->logCanceled($report, $admin, $reason);
 
             return $report->refresh();
         });
