@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class, // ⭐ Thêm đầu tiên
             RolesAndPermissionsSeeder::class,
             UserSeeder::class,
+            VendorReportSeeder::class,
         ]);
     }
 }
