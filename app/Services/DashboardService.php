@@ -245,7 +245,7 @@ class DashboardService
             },
             'report.creator:id,name,department_id',
             'report.creator.department:id,name',
-            'assignee:id,name'
+            'assigneeUser:id,name'
         ])
             ->where('assignee_user_id', $user->id)
             ->where('status', 'PENDING')
@@ -384,8 +384,8 @@ class DashboardService
         $query = VendorReport::select('status', DB::raw('count(*) as count'))
             ->groupBy('status');
 
-        // Filter by user role
-        if (!$user->hasAnyRole(['admin_system', 'purchasing_admin'])) {
+        // Only requesters see their own reports, others see all
+        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
             $query->where('created_by', $user->id);
         }
 
@@ -433,7 +433,8 @@ class DashboardService
         $query = VendorReport::select('workflow_type', DB::raw('count(*) as count'))
             ->groupBy('workflow_type');
 
-        if (!$user->hasAnyRole(['admin_system', 'purchasing_admin'])) {
+        // Only requesters see their own reports, others see all
+        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
             $query->where('created_by', $user->id);
         }
 
@@ -465,7 +466,8 @@ class DashboardService
             ->whereIn('status', ['APPROVED', 'REJECTED'])
             ->groupBy('year', 'month', 'status');
 
-        if (!$user->hasAnyRole(['admin_system', 'purchasing_admin'])) {
+        // Only requesters see their own reports, others see all
+        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
             $query->where('created_by', $user->id);
         }
 

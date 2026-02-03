@@ -208,61 +208,61 @@
                 </template>
                 <template #content>
                     <div class="flex flex-wrap gap-3">
-                        <!-- Total Reports -->
+                        <!-- My Created Reports -->
                         <div class="flex-1" style="min-width: 200px">
                             <Card class="metric-card h-full">
                                 <template #content>
                                     <div class="flex align-items-center gap-2 mb-3">
                                         <i class="pi pi-file text-2xl text-blue-500"></i>
-                                        <span class="text-500 font-medium">Tổng số phiếu</span>
+                                        <span class="text-500 font-medium">Tổng số phiếu (của tôi)</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-blue-500">{{ statistics.total_reports }}</span>
+                                        <span class="text-4xl font-bold text-blue-500">{{ statistics.my_created_reports }}</span>
                                     </div>
                                 </template>
                             </Card>
                         </div>
 
-                        <!-- Pending Approvals -->
+                        <!-- My Pending Approvals -->
                         <div class="flex-1" style="min-width: 200px">
                             <Card class="metric-card h-full">
                                 <template #content>
                                     <div class="flex align-items-center gap-2 mb-3">
                                         <i class="pi pi-clock text-2xl text-orange-500"></i>
-                                        <span class="text-500 font-medium">Cần duyệt</span>
+                                        <span class="text-500 font-medium">Phiếu tôi cần duyệt</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-orange-500">{{ statistics.pending_approvals }}</span>
+                                        <span class="text-4xl font-bold text-orange-500">{{ statistics.my_pending_approvals }}</span>
                                     </div>
                                 </template>
                             </Card>
                         </div>
 
-                        <!-- Approved Reports -->
+                        <!-- My Approved Reports -->
                         <div class="flex-1" style="min-width: 200px">
                             <Card class="metric-card h-full">
                                 <template #content>
                                     <div class="flex align-items-center gap-2 mb-3">
                                         <i class="pi pi-check-circle text-2xl text-green-500"></i>
-                                        <span class="text-500 font-medium">Đã duyệt</span>
+                                        <span class="text-500 font-medium">Phiếu tôi đã duyệt</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-green-500">{{ statistics.approved_reports }}</span>
+                                        <span class="text-4xl font-bold text-green-500">{{ statistics.my_approved_reports }}</span>
                                     </div>
                                 </template>
                             </Card>
                         </div>
 
-                        <!-- Rejected Reports -->
+                        <!-- My Rejected Reports -->
                         <div class="flex-1" style="min-width: 200px">
                             <Card class="metric-card h-full">
                                 <template #content>
                                     <div class="flex align-items-center gap-2 mb-3">
                                         <i class="pi pi-times-circle text-2xl text-red-500"></i>
-                                        <span class="text-500 font-medium">Từ chối</span>
+                                        <span class="text-500 font-medium">Phiếu tôi từ chối</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-red-500">{{ statistics.rejected_reports }}</span>
+                                        <span class="text-4xl font-bold text-red-500">{{ statistics.my_rejected_reports }}</span>
                                     </div>
                                 </template>
                             </Card>

@@ -36,10 +36,10 @@ class ProfileController extends Controller
                 'created_at' => $user->created_at->format('d/m/Y'),
             ],
             'statistics' => [
-                'total_reports' => $user->createdReports()->count(),
-                'pending_approvals' => $user->assignedApprovalSteps()->where('status', 'PENDING')->count(),
-                'approved_reports' => $user->createdReports()->where('status', 'APPROVED')->count(),
-                'rejected_reports' => $user->createdReports()->where('status', 'REJECTED')->count(),
+                'my_created_reports' => $user->createdReports()->count(),
+                'my_pending_approvals' => $user->assignedApprovalSteps()->where('status', 'PENDING')->count(),
+                'my_approved_reports' => $user->assignedApprovalSteps()->where('status', 'APPROVED')->count(),
+                'my_rejected_reports' => $user->assignedApprovalSteps()->where('status', 'REJECTED')->count(),
             ],
         ]);
     }

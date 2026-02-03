@@ -20,7 +20,7 @@ class VendorReportSeeder extends Seeder
 
         // Get all necessary data
         $users = User::with('department')->get();
-        $departments = Department::all();
+        $departments = Department::with('headUser')->get();
 
         if ($users->isEmpty() || $departments->isEmpty()) {
             $this->command->error('❌ No users or departments found. Please run UserSeeder and DepartmentSeeder first.');
@@ -28,18 +28,36 @@ class VendorReportSeeder extends Seeder
         }
 
         // Group users by roles
-        $requesters = $users->filter(fn($u) => $u->hasRole('requester'));
+        // Only get requesters from Phòng Thu Mua (department with head)
+        $thuMuaDept = $departments->firstWhere('code', 'TM');
+
+        if (!$thuMuaDept || !$thuMuaDept->head_user_id) {
+            $this->command->error('❌ Phòng Thu Mua does not have a department head. Cannot create vendor reports.');
+            return;
+        }
+
+        $requesters = $users->filter(fn($u) =>
+            $u->hasRole('requester') &&
+            $u->department_id === $thuMuaDept->id
+        );
+
         $purchasingAdmins = $users->filter(fn($u) => $u->hasRole('purchasing_admin'));
-        $deptHeads = $users->filter(fn($u) => $u->hasRole('dept_head'));
+
+        // Get department heads from departments table (head_user_id)
+        $deptHeads = $departments->filter(fn($d) => $d->head_user_id !== null)
+            ->pluck('headUser')->filter();
+
         $internalControllers = $users->filter(fn($u) => $u->hasRole('internal_control'));
         $nationalPurchasers = $users->filter(fn($u) => $u->hasRole('national_purchasing'));
         $techBoards = $users->filter(fn($u) => $u->hasRole('tech_board'));
         $bods = $users->filter(fn($u) => $u->hasRole('bod'));
 
         if ($requesters->isEmpty()) {
-            $this->command->error('❌ No requesters found. Cannot create vendor reports.');
+            $this->command->error('❌ No requesters found in Phòng Thu Mua. Cannot create vendor reports.');
             return;
         }
+
+        $this->command->info("✓ Found {$requesters->count()} requesters in Phòng Thu Mua");
 
         // Workflow types with their distribution percentages
         $workflowTypes = [
@@ -113,7 +131,7 @@ class VendorReportSeeder extends Seeder
                 $workflowType,
                 $status,
                 $createdAt,
-                $deptHeads,
+                $department,
                 $internalControllers,
                 $nationalPurchasers,
                 $techBoards,
@@ -271,7 +289,7 @@ class VendorReportSeeder extends Seeder
         string $workflowType,
         string $status,
         Carbon $baseDate,
-        $deptHeads,
+        $department,
         $internalControllers,
         $nationalPurchasers,
         $techBoards,
@@ -285,11 +303,16 @@ class VendorReportSeeder extends Seeder
         $steps = [];
         $currentDate = $baseDate->copy();
 
+        // Get department head for this specific department
+        $deptHead = $department && $department->head_user_id
+            ? User::find($department->head_user_id)
+            : null;
+
         // Define workflow steps based on type
         switch ($workflowType) {
             case 'NORMAL':
                 $steps = [
-                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'users' => $deptHeads],
+                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'user' => $deptHead],
                     ['key' => 'INTERNAL_CONTROL', 'role' => 'internal_control', 'users' => $internalControllers],
                     ['key' => 'BOD', 'role' => 'bod', 'users' => $bods],
                 ];
@@ -297,7 +320,7 @@ class VendorReportSeeder extends Seeder
 
             case 'SPECIAL_1': // Qua 2 BOD
                 $steps = [
-                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'users' => $deptHeads],
+                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'user' => $deptHead],
                     ['key' => 'INTERNAL_CONTROL', 'role' => 'internal_control', 'users' => $internalControllers],
                     ['key' => 'BOD_1', 'role' => 'bod', 'users' => $bods],
                     ['key' => 'BOD_2', 'role' => 'bod', 'users' => $bods],
@@ -306,7 +329,7 @@ class VendorReportSeeder extends Seeder
 
             case 'SPECIAL_2': // Qua Khối Mua Hàng
                 $steps = [
-                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'users' => $deptHeads],
+                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'user' => $deptHead],
                     ['key' => 'NATIONAL_PURCHASING', 'role' => 'national_purchasing', 'users' => $nationalPurchasers],
                     ['key' => 'INTERNAL_CONTROL', 'role' => 'internal_control', 'users' => $internalControllers],
                     ['key' => 'BOD', 'role' => 'bod', 'users' => $bods],
@@ -315,7 +338,7 @@ class VendorReportSeeder extends Seeder
 
             case 'SPECIAL_3': // Qua Ban Kỹ thuật
                 $steps = [
-                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'users' => $deptHeads],
+                    ['key' => 'DEPT_HEAD', 'role' => 'dept_head', 'user' => $deptHead],
                     ['key' => 'TECH_BOARD', 'role' => 'tech_board', 'users' => $techBoards],
                     ['key' => 'INTERNAL_CONTROL', 'role' => 'internal_control', 'users' => $internalControllers],
                     ['key' => 'BOD', 'role' => 'bod', 'users' => $bods],
@@ -337,8 +360,14 @@ class VendorReportSeeder extends Seeder
             // Determine step status based on report status
             $stepStatus = $this->determineStepStatus($status, $stepOrder, count($steps));
 
-            // Select random user from the role
-            $assignee = $stepConfig['users']->isNotEmpty() ? $stepConfig['users']->random() : null;
+            // Get assignee: either specific user or random from collection
+            if (isset($stepConfig['user'])) {
+                $assignee = $stepConfig['user'];
+            } elseif (isset($stepConfig['users']) && $stepConfig['users']->isNotEmpty()) {
+                $assignee = $stepConfig['users']->random();
+            } else {
+                $assignee = null;
+            }
 
             if (!$assignee) {
                 continue; // Skip if no user available for this role
