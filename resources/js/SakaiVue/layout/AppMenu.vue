@@ -22,6 +22,12 @@ const model = computed(() => {
                 { label: 'Danh sách phiếu', icon: 'pi pi-fw pi-file-edit', to: '/vendor-reports' },
             ]
         },
+        {
+            label: 'Tài khoản',
+            items: [
+                { label: 'Hồ sơ cá nhân', icon: 'pi pi-fw pi-user', to: '/profile' },
+            ]
+        },
     ];
 
     // Only show System menu for admin_system role (highest privilege)

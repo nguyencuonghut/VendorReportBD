@@ -10,6 +10,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\VendorReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
 
 /*** Login Routes ***/
 Route::group(['middleware' => 'guest'], function () {
@@ -42,6 +43,10 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
         Route::get('/activities', [DashboardController::class, 'getActivities'])->name('dashboard.activities');
     });
+
+    // Profile Routes
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
     // User Management Routes - Authorization handled by UserPolicy
     // Bulk delete route must be defined before resource routes
