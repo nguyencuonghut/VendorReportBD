@@ -66,7 +66,7 @@ const handleLogout = () => {
                 </div>
 
                 <!-- Language Switcher -->
-                <LanguageSwitcher />
+                <!-- <LanguageSwitcher /> -->
             </div>
 
             <button
@@ -78,7 +78,7 @@ const handleLogout = () => {
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                    <button type="button" class="layout-topbar-action">
+                    <!-- <button type="button" class="layout-topbar-action">
                         <i class="pi pi-calendar"></i>
                         <span>{{ t('nav.calendar') }}</span>
                     </button>
@@ -89,7 +89,7 @@ const handleLogout = () => {
                     <button type="button" class="layout-topbar-action">
                         <i class="pi pi-user"></i>
                         <span>{{ t('nav.profile') }}</span>
-                    </button>
+                    </button> -->
                     <button type="button" class="layout-topbar-action" @click="handleLogout">
                         <i class="pi pi-sign-out"></i>
                         <span>{{ t('auth.logout') }}</span>
