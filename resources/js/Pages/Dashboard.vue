@@ -91,7 +91,7 @@
                                 <template #body="slotProps">
                                     <Tag
                                         :severity="slotProps.data.days_pending > 5 ? 'danger' : 'secondary'"
-                                        :value="`${slotProps.data.days_pending} ngày`"
+                                        :value="`${Math.round(slotProps.data.days_pending)} ngày`"
                                     />
                                 </template>
                             </Column>

@@ -1,12 +1,9 @@
 <template>
     <Card class="metric-card" :class="{ 'cursor-pointer': onClick }" @click="handleClick">
         <template #content>
-            <div class="flex align-items-center justify-content-between mb-3">
-                <div class="flex align-items-center gap-2">
-                    <i :class="icon" class="text-2xl" :style="{ color: severityColor }"></i>
-                    <span class="text-500 font-medium">{{ title }}</span>
-                </div>
-                <Tag v-if="trend" :severity="getTrendSeverity()" :value="trend" />
+            <div class="flex align-items-center gap-2 mb-3">
+                <i :class="icon" class="text-2xl" :style="{ color: severityColor }"></i>
+                <span class="text-500 font-medium">{{ title }}</span>
             </div>
 
             <div class="flex align-items-baseline gap-2 mb-2">

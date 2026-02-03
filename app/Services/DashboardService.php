@@ -54,7 +54,6 @@ class DashboardService
                 'value' => VendorReport::count(),
                 'icon' => 'pi pi-file',
                 'severity' => 'info',
-                'trend' => $this->calculateTrend('reports'),
                 'onClick' => '/vendor-reports',
             ],
             [
@@ -261,8 +260,8 @@ class DashboardService
                 'workflow_type' => $report->workflow_type,
                 'workflow_type_label' => $report->getWorkflowTypeLabel(),
                 'current_step_label' => $step->getStepKeyLabel(),
-                'assignee_name' => $step->assignee?->name,
-                'days_pending' => now()->diffInDays($step->created_at),
+                'assignee_name' => $step->assigneeUser?->name,
+                'days_pending' => $step->created_at->diffInDays(now()),
                 'submitted_at' => $report->submitted_at->format('d/m/Y'),
                 'department_name' => $report->creator?->department?->name,
                 'creator_name' => $report->creator?->name,
@@ -279,7 +278,7 @@ class DashboardService
 
     private function getStuckReports(): array
     {
-        return VendorReport::with(['creator.department', 'currentStep.assignee'])
+        return VendorReport::with(['creator.department', 'currentStep.assigneeUser'])
             ->where('status', 'IN_APPROVAL')
             ->where('submitted_at', '<', now()->subDays(5))
             ->get()
@@ -291,8 +290,8 @@ class DashboardService
                     'workflow_type' => $report->workflow_type,
                     'workflow_type_label' => $report->getWorkflowTypeLabel(),
                     'current_step_label' => $report->currentStep?->getStepKeyLabel(),
-                    'assignee_name' => $report->currentStep?->assignee?->name,
-                    'days_pending' => now()->diffInDays($report->submitted_at),
+                    'assignee_name' => $report->currentStep?->assigneeUser?->name,
+                    'days_pending' => $report->submitted_at->diffInDays(now()),
                     'submitted_at' => $report->submitted_at->format('d/m/Y'),
                     'department_name' => $report->creator?->department?->name,
                 ];
@@ -586,20 +585,5 @@ class DashboardService
             ->value('avg_hours');
 
         return $avgHours ? ($avgHours / 24) : 0;
-    }
-
-    private function calculateTrend(string $metric): string
-    {
-        $currentMonth = VendorReport::whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->count();
-        $lastMonth = VendorReport::whereMonth('created_at', now()->subMonth()->month)
-            ->whereYear('created_at', now()->subMonth()->year)
-            ->count();
-
-        if ($lastMonth == 0) return $currentMonth > 0 ? '+100%' : '0%';
-
-        $percentage = (($currentMonth - $lastMonth) / $lastMonth) * 100;
-        return sprintf('%+.1f%%', $percentage);
     }
 }
