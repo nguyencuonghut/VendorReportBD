@@ -391,6 +391,7 @@ class DashboardService
 
         $data = $query->get();
 
+        // Status labels mapping
         $statusLabels = [
             'DRAFT' => 'Nháp',
             'SUBMITTED' => 'Đã gửi',
@@ -400,11 +401,29 @@ class DashboardService
             'CANCELED' => 'Hủy',
         ];
 
+        // Status colors mapping (matching VendorReport::getStatusColor())
+        $statusColors = [
+            'DRAFT' => '#3b82f6',      // info - blue
+            'SUBMITTED' => '#06b6d4',  // primary - cyan
+            'IN_APPROVAL' => '#f59e0b', // warn - amber
+            'APPROVED' => '#22c55e',    // success - green
+            'REJECTED' => '#ef4444',    // danger - red
+            'CANCELED' => '#64748b',    // secondary - slate
+        ];
+
+        // Build labels and colors in the same order as data
+        $labels = [];
+        $colors = [];
+        foreach ($data as $item) {
+            $labels[] = $statusLabels[$item->status] ?? $item->status;
+            $colors[] = $statusColors[$item->status] ?? '#64748b';
+        }
+
         return [
-            'labels' => $data->pluck('status')->map(fn($s) => $statusLabels[$s] ?? $s)->toArray(),
+            'labels' => $labels,
             'datasets' => [[
                 'data' => $data->pluck('count')->toArray(),
-                'backgroundColor' => ['#94a3b8', '#3b82f6', '#22c55e', '#ef4444', '#6b7280'],
+                'backgroundColor' => $colors,
             ]],
         ];
     }
