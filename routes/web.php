@@ -9,6 +9,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\VendorReportController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DashboardController;
 
 /*** Login Routes ***/
 Route::group(['middleware' => 'guest'], function () {
@@ -31,6 +32,15 @@ Route::group(['middleware' => 'auth'], function () {
 Route::group(['middleware' => 'auth'], function () {
     Route::get('/', function () {
         return Inertia::render('Home');
+    });
+
+    // Dashboard Routes
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::prefix('api/dashboard')->group(function () {
+        Route::get('/metrics', [DashboardController::class, 'getMetrics'])->name('dashboard.metrics');
+        Route::get('/pending-actions', [DashboardController::class, 'getPendingActions'])->name('dashboard.pending-actions');
+        Route::get('/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
+        Route::get('/activities', [DashboardController::class, 'getActivities'])->name('dashboard.activities');
     });
 
     // User Management Routes - Authorization handled by UserPolicy

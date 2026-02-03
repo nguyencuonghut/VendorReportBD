@@ -11,7 +11,10 @@ const model = computed(() => {
     const items = [
         {
             label: 'Trang chủ',
-            items: [{ label: 'Trang chủ', icon: 'pi pi-fw pi-home', to: '/' }]
+            items: [
+                { label: 'Trang chủ', icon: 'pi pi-fw pi-home', to: '/' },
+                { label: 'Dashboard', icon: 'pi pi-fw pi-chart-line', to: '/dashboard' }
+            ]
         },
         {
             label: 'Quản lý phiếu',
