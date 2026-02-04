@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useNotifications } from '@/composables/useNotifications';
 import { useConfirm } from 'primevue/useconfirm';
@@ -25,6 +25,9 @@ const {
 const confirm = useConfirm();
 const popover = ref();
 const pollInterval = ref(null);
+
+// Detect mobile
+const isMobile = computed(() => window.innerWidth <= 640);
 
 const toggle = (event) => {
     popover.value.toggle(event);
@@ -146,16 +149,24 @@ onUnmounted(() => {
             style="min-width: 1.25rem; height: 1.25rem;"
         />
 
-        <Popover ref="popover" :style="{ width: '400px' }">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Thông báo</h3>
-                <div class="flex gap-2">
+        <Popover
+            ref="popover"
+            :style="{
+                width: 'min(400px, 90vw)',
+                maxHeight: '80vh'
+            }"
+        >
+            <div class="flex items-center justify-between mb-4 gap-2">
+                <h3 class="text-base sm:text-lg font-semibold truncate">Thông báo</h3>
+                <div class="flex gap-1 sm:gap-2 flex-shrink-0">
                     <Button
                         v-if="unreadCount > 0"
-                        label="Đánh dấu tất cả đã đọc"
+                        :label="!isMobile ? 'Đánh dấu tất cả đã đọc' : ''"
+                        :icon="isMobile ? 'pi pi-check' : ''"
                         text
                         size="small"
                         @click="handleMarkAllAsRead"
+                        v-tooltip.bottom="isMobile ? 'Đánh dấu tất cả đã đọc' : ''"
                     />
                     <Button
                         v-if="notifications.length > 0"
@@ -169,14 +180,17 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <ScrollPanel style="height: 400px" class="custom-scrollpanel">
+            <ScrollPanel
+                :style="{ height: 'min(400px, 60vh)' }"
+                class="custom-scrollpanel"
+            >
                 <div v-if="loading && !notifications.length" class="text-center py-8">
-                    <i class="pi pi-spin pi-spinner text-2xl text-gray-400"></i>
+                    <i class="pi pi-spin pi-spinner text-xl sm:text-2xl text-gray-400"></i>
                 </div>
 
                 <div v-else-if="!notifications.length" class="text-center py-8 text-gray-500">
-                    <i class="pi pi-bell-slash text-4xl mb-2"></i>
-                    <p>Không có thông báo</p>
+                    <i class="pi pi-bell-slash text-3xl sm:text-4xl mb-2"></i>
+                    <p class="text-sm sm:text-base">Không có thông báo</p>
                 </div>
 
                 <div v-else class="space-y-2">
@@ -184,24 +198,24 @@ onUnmounted(() => {
                         v-for="notification in notifications"
                         :key="notification.id"
                         :class="[
-                            'p-3 rounded-lg cursor-pointer transition-colors border',
+                            'p-2 sm:p-3 rounded-lg cursor-pointer transition-colors border',
                             notification.read_at ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-200'
                         ]"
                         @click="handleNotificationClick(notification)"
                     >
-                        <div class="flex items-start gap-3">
-                            <div :class="['text-xl', getNotificationColor(notification.data?.type)]">
+                        <div class="flex items-start gap-2 sm:gap-3">
+                            <div :class="['text-lg sm:text-xl flex-shrink-0', getNotificationColor(notification.data?.type)]">
                                 <i :class="['pi', getNotificationIcon(notification.data?.type)]"></i>
                             </div>
 
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-sm mb-1">
+                                <p class="font-medium text-xs sm:text-sm mb-1 leading-tight">
                                     {{ notification.data?.message || 'Thông báo mới' }}
                                 </p>
-                                <p v-if="notification.data?.report_title" class="text-xs text-gray-600 truncate">
+                                <p v-if="notification.data?.report_title" class="text-[10px] sm:text-xs text-gray-600 truncate">
                                     {{ notification.data.report_title }}
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">
+                                <p class="text-[10px] sm:text-xs text-gray-500 mt-1">
                                     {{ formatTime(notification.created_at) }}
                                 </p>
                             </div>
@@ -212,6 +226,7 @@ onUnmounted(() => {
                                 rounded
                                 size="small"
                                 severity="secondary"
+                                class="flex-shrink-0"
                                 @click="handleDelete(notification, $event)"
                             />
                         </div>

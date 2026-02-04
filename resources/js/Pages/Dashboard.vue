@@ -6,9 +6,9 @@
     <div class="grid gap-3">
             <!-- Page Header -->
             <div class="col-12">
-                <div class="flex align-items-center justify-content-between mb-3">
+                <div class="flex align-items-center justify-content-between mb-2 sm:mb-3">
                     <div>
-                        <h3 class="text-3xl font-bold mb-1">Dashboard</h3>
+                        <h3 class="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">Dashboard</h3>
                     </div>
                     <Button
                         icon="pi pi-refresh"
@@ -24,12 +24,12 @@
 
             <!-- Metrics Cards -->
             <div class="col-12">
-                <div class="flex flex-wrap gap-3">
+                <div class="flex flex-wrap gap-2 sm:gap-3">
                     <div
                         v-for="metric in metrics"
                         :key="metric.id"
                         class="flex-1"
-                        style="min-width: 200px"
+                        style="min-width: min(200px, 100%)"
                     >
                         <MetricCard v-bind="metric" :loading="refreshing" />
                     </div>
@@ -37,7 +37,7 @@
             </div>
 
             <!-- Spacing -->
-            <div class="col-12 mb-5"></div>
+            <div class="col-12 mb-3 sm:mb-5"></div>
 
             <!-- Pending Actions Table -->
             <div class="col-12 lg:col-8">
@@ -45,11 +45,11 @@
                     <template #title>
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div class="flex items-center gap-2">
-                                <i class="pi pi-bell text-orange-500"></i>
-                                <span>Phiếu cần xử lý</span>
+                                <i class="pi pi-bell text-orange-500 text-sm sm:text-base"></i>
+                                <span class="text-sm sm:text-base">Phiếu cần xử lý</span>
                                 <Badge v-if="localPendingActions.length > 0" :value="localPendingActions.length" severity="danger" />
                             </div>
-                            <IconField v-if="localPendingActions.length > 0">
+                            <IconField v-if="localPendingActions.length > 0" class="w-full sm:w-auto">
                                 <InputIcon>
                                     <i class="pi pi-search" />
                                 </InputIcon>
@@ -57,16 +57,17 @@
                                     v-model="filters['global'].value"
                                     placeholder="Tìm kiếm..."
                                     size="small"
+                                    class="w-full"
                                 />
                             </IconField>
                         </div>
                     </template>
                     <template #content>
                         <!-- Empty State -->
-                        <div v-if="localPendingActions.length === 0" class="flex flex-column align-items-center justify-content-center py-8">
-                            <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
-                            <h3 class="text-xl font-semibold mb-2">Không có phiếu cần xử lý</h3>
-                            <p class="text-500 text-center">Tất cả phiếu đã được xử lý xong.</p>
+                        <div v-if="localPendingActions.length === 0" class="flex flex-column align-items-center justify-content-center py-6 sm:py-8">
+                            <i class="pi pi-check-circle text-4xl sm:text-6xl text-green-500 mb-3 sm:mb-4"></i>
+                            <h3 class="text-lg sm:text-xl font-semibold mb-2">Không có phiếu cần xử lý</h3>
+                            <p class="text-500 text-center text-sm sm:text-base">Tất cả phiếu đã được xử lý xong.</p>
                         </div>
 
                         <!-- Data Table -->
@@ -80,6 +81,7 @@
                             responsiveLayout="scroll"
                             stripedRows
                             class="p-datatable-sm"
+                            :breakpoint="'960px'"
                         >
                             <template #empty>
                                 <div class="text-center py-4">
@@ -147,8 +149,8 @@
                 <Card>
                     <template #title>
                         <div class="flex align-items-center gap-2">
-                            <i class="pi pi-bolt text-blue-500"></i>
-                            <span>Thao tác nhanh</span>
+                            <i class="pi pi-bolt text-blue-500 text-sm sm:text-base"></i>
+                            <span class="text-sm sm:text-base">Thao tác nhanh</span>
                         </div>
                     </template>
                     <template #content>
@@ -160,7 +162,8 @@
                                 :icon="action.icon"
                                 :severity="action.severity"
                                 outlined
-                                class="w-full justify-content-start"
+                                size="small"
+                                class="w-full justify-content-start text-sm"
                                 @click="router.visit(action.route)"
                             />
                         </div>
@@ -169,7 +172,7 @@
             </div>
 
             <!-- Spacing -->
-            <div class="col-12 mb-5"></div>
+            <div class="col-12 mb-3 sm:mb-5"></div>
 
             <!-- Charts Row -->
             <div class="col-12 lg:col-6">
@@ -196,7 +199,7 @@
             </div>
 
             <!-- Spacing -->
-            <div class="col-12 mb-5"></div>
+            <div class="col-12 mb-3 sm:mb-5"></div>
 
             <!-- Activities Timeline -->
             <div class="col-12">
@@ -204,14 +207,15 @@
                     <template #title>
                         <div class="flex align-items-center justify-content-between">
                             <div class="flex align-items-center gap-2">
-                                <i class="pi pi-history text-purple-500"></i>
-                                <span>Hoạt động gần đây</span>
+                                <i class="pi pi-history text-purple-500 text-sm sm:text-base"></i>
+                                <span class="text-sm sm:text-base">Hoạt động gần đây</span>
                             </div>
                             <Button
                                 icon="pi pi-refresh"
                                 severity="secondary"
                                 text
                                 rounded
+                                size="small"
                                 :loading="loadingActivities"
                                 @click="refreshActivities"
                             />
@@ -220,45 +224,46 @@
                     <template #content>
                         <!-- Loading State -->
                         <div v-if="loadingActivities" class="flex flex-column gap-3">
-                            <div v-for="i in 5" :key="i" class="flex gap-3">
-                                <Skeleton shape="circle" size="2rem" />
+                            <div v-for="i in 5" :key="i" class="flex gap-2 sm:gap-3">
+                                <Skeleton shape="circle" size="1.5rem" class="sm:w-2rem sm:h-2rem" />
                                 <div class="flex-1">
-                                    <Skeleton width="60%" class="mb-2" />
-                                    <Skeleton width="40%" height=".8rem" />
+                                    <Skeleton width="60%" class="mb-2 h-0.75rem sm:h-1rem" />
+                                    <Skeleton width="40%" height=".6rem" class="sm:h-0.8rem" />
                                 </div>
                             </div>
                         </div>
 
                         <!-- Empty State -->
-                        <div v-else-if="localActivities.length === 0" class="flex flex-column align-items-center justify-content-center py-8">
-                            <i class="pi pi-inbox text-6xl text-400 mb-4"></i>
-                            <h3 class="text-xl font-semibold mb-2">Chưa có hoạt động nào</h3>
-                            <p class="text-500 text-center">Các hoạt động của hệ thống sẽ được hiển thị tại đây.</p>
+                        <div v-else-if="localActivities.length === 0" class="flex flex-column align-items-center justify-content-center py-6 sm:py-8">
+                            <i class="pi pi-inbox text-4xl sm:text-6xl text-400 mb-3 sm:mb-4"></i>
+                            <h3 class="text-lg sm:text-xl font-semibold mb-2">Chưa có hoạt động nào</h3>
+                            <p class="text-500 text-center text-sm sm:text-base">Các hoạt động của hệ thống sẽ được hiển thị tại đây.</p>
                         </div>
 
                         <!-- Timeline -->
                         <Timeline v-else :value="localActivities" class="customized-timeline">
                             <template #marker="slotProps">
                                 <span
-                                    class="flex w-2rem h-2rem align-items-center justify-content-center text-white border-circle z-1 shadow-2"
+                                    class="flex align-items-center justify-content-center text-white border-circle z-1 shadow-2"
+                                    :class="{ 'w-1.5rem h-1.5rem': true, 'sm:w-2rem sm:h-2rem': true }"
                                     :style="{ backgroundColor: DashboardService.getActivityColor(slotProps.item.event) }"
                                 >
-                                    <i :class="DashboardService.getActivityIcon(slotProps.item.event)"></i>
+                                    <i :class="[DashboardService.getActivityIcon(slotProps.item.event), 'text-xs sm:text-sm']"></i>
                                 </span>
                             </template>
                             <template #content="slotProps">
                                 <div class="flex flex-column gap-1">
-                                    <div class="font-semibold">{{ slotProps.item.description }}</div>
-                                    <div class="text-sm text-500">
+                                    <div class="font-semibold text-xs sm:text-sm">{{ slotProps.item.description }}</div>
+                                    <div class="text-xs sm:text-sm text-500 flex flex-wrap gap-1">
                                         <span class="font-medium">{{ slotProps.item.causer_name }}</span>
-                                        •
+                                        <span>•</span>
                                         <Link
                                             :href="`/vendor-reports/${slotProps.item.report_id}`"
                                             class="text-primary hover:underline"
                                         >
                                             {{ slotProps.item.report_code }}
                                         </Link>
-                                        •
+                                        <span>•</span>
                                         <span>{{ DashboardService.formatDate(slotProps.item.created_at) }}</span>
                                     </div>
                                 </div>
