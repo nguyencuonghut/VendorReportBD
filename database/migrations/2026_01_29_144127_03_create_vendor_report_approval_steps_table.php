@@ -27,10 +27,16 @@ return new class extends Migration
             $table->foreignId('selected_next_approver_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
+            // Single column indexes
             $table->index('report_id');
             $table->index('step_order');
             $table->index('status');
             $table->index('assignee_user_id');
+
+            // Composite indexes for common queries
+            $table->index(['report_id', 'status', 'step_order']); // Get current step
+            $table->index(['assignee_user_id', 'status']); // Find user's pending approvals
+            $table->index(['status', 'created_at']); // Pending steps by date
         });
     }
 

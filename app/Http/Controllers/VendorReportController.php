@@ -158,14 +158,12 @@ class VendorReportController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
 
-        // Lấy danh sách người tạo phiếu (chỉ những người đã tạo phiếu)
-        $creators = \App\Models\User::whereIn('id', function($query) {
-                $query->select('created_by')
-                    ->from('vendor_reports')
-                    ->distinct();
-            })
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        // Lấy danh sách người tạo phiếu (optimize với join)
+        $creators = \App\Models\User::select('users.id', 'users.name')
+            ->join('vendor_reports', 'users.id', '=', 'vendor_reports.created_by')
+            ->distinct()
+            ->orderBy('users.name')
+            ->get();
 
         return Inertia::render('VendorReports/Index', [
             'reports' => [

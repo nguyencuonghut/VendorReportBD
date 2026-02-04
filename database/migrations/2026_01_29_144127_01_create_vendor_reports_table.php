@@ -33,10 +33,19 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
+            // Single column indexes
             $table->index('code');
             $table->index('status');
             $table->index('workflow_type');
             $table->index('created_by');
+            $table->index('purchasing_admin_id');
+            $table->index('submitted_at');
+
+            // Composite indexes for common queries
+            $table->index(['status', 'created_by']); // Filter by status + creator
+            $table->index(['status', 'submitted_at']); // Filter by status + submission date
+            $table->index(['workflow_type', 'status']); // Filter by workflow + status
+            $table->index(['created_by', 'status', 'created_at']); // User's reports with status filter
         });
     }
 

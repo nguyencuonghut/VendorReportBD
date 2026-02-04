@@ -17,6 +17,10 @@ class CreateActivityLogTable extends Migration
             $table->json('properties')->nullable();
             $table->timestamps();
             $table->index('log_name');
+
+            // Composite indexes for common queries
+            $table->index(['log_name', 'created_at']); // Recent activities by log type
+            $table->index(['subject_type', 'subject_id', 'created_at']); // Subject activities timeline
         });
     }
 

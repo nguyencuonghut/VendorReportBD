@@ -7,7 +7,6 @@ use App\Models\VendorReport;
 use App\Models\VendorReportApprovalStep;
 use App\Models\Department;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\Models\Activity;
 
 class DashboardService
@@ -25,8 +24,18 @@ class DashboardService
             return $this->getPurchasingAdminMetrics($user);
         }
 
+        // Get user's roles
+        $userRoles = $user->getRoleNames()->toArray();
+
         // Check if user is approver
-        $isApprover = VendorReportApprovalStep::where('assignee_user_id', $user->id)->exists();
+        // User is approver if: assigned specifically OR has role that matches assignee_role
+        $isApprover = VendorReportApprovalStep::where(function($query) use ($user, $userRoles) {
+            $query->where('assignee_user_id', $user->id)
+                ->orWhere(function($q) use ($userRoles) {
+                    $q->whereNull('assignee_user_id')
+                      ->whereIn('assignee_role', $userRoles);
+                });
+        })->exists();
 
         // Check if user is dept head
         $isDeptHead = $this->isDeptHead($user);
@@ -165,8 +174,16 @@ class DashboardService
 
     private function getApproverMetrics(User $user): array
     {
-        $pendingCount = VendorReportApprovalStep::where('assignee_user_id', $user->id)
-            ->where('status', 'PENDING')
+        $userRoles = $user->getRoleNames()->toArray();
+
+        $pendingCount = VendorReportApprovalStep::where('status', 'PENDING')
+            ->where(function($query) use ($user, $userRoles) {
+                $query->where('assignee_user_id', $user->id)
+                    ->orWhere(function($q) use ($userRoles) {
+                        $q->whereNull('assignee_user_id')
+                          ->whereIn('assignee_role', $userRoles);
+                    });
+            })
             ->count();
 
         $approvedToday = VendorReportApprovalStep::where('acted_by', $user->id)
@@ -238,7 +255,13 @@ class DashboardService
             return $this->getStuckReports();
         }
 
+        // Get user's roles
+        $userRoles = $user->getRoleNames()->toArray();
+
         // For approvers: get pending approval steps
+        // Lấy các step mà:
+        // 1. Đã được assign cụ thể cho user (assignee_user_id = user.id)
+        // 2. HOẶC chưa assign cụ thể nhưng role của step khớp với role của user
         $steps = VendorReportApprovalStep::with([
             'report' => function($q) {
                 $q->select('id', 'code', 'title', 'workflow_type', 'submitted_at', 'created_by');
@@ -247,8 +270,16 @@ class DashboardService
             'report.creator.department:id,name',
             'assigneeUser:id,name'
         ])
-            ->where('assignee_user_id', $user->id)
             ->where('status', 'PENDING')
+            ->where(function($query) use ($user, $userRoles) {
+                // Case 1: Đã assign cụ thể cho user này
+                $query->where('assignee_user_id', $user->id)
+                    // Case 2: Chưa assign cụ thể nhưng role khớp
+                    ->orWhere(function($q) use ($userRoles) {
+                        $q->whereNull('assignee_user_id')
+                          ->whereIn('assignee_role', $userRoles);
+                    });
+            })
             ->get();
 
         return $steps->map(function ($step) {
@@ -258,9 +289,9 @@ class DashboardService
 
             // Calculate detailed pending time
             $totalMinutes = $createdAt->diffInMinutes($now);
-            $days = floor($totalMinutes / (24 * 60));
-            $hours = floor(($totalMinutes % (24 * 60)) / 60);
-            $minutes = $totalMinutes % 60;
+            $days = (int) floor($totalMinutes / (24 * 60));
+            $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
+            $minutes = (int) ($totalMinutes % 60);
 
             // Format pending time string
             $pendingTimeFormatted = '';
@@ -285,12 +316,7 @@ class DashboardService
                 'requires_selection' => $step->requires_selection,
             ];
         })
-        ->sortByDesc(function ($item) {
-            // URGENT lên đầu, sau đó sắp xếp theo submitted_at (mới nhất trước)
-            return $item['workflow_type'] === 'URGENT'
-                ? 9999999999 + $item['submitted_at_timestamp']
-                : $item['submitted_at_timestamp'];
-        })
+        ->sortByDesc('submitted_at_timestamp') // Sort by submitted time, newest first
         ->values()
         ->all();
     }
@@ -308,9 +334,9 @@ class DashboardService
 
                 // Calculate detailed pending time
                 $totalMinutes = $submittedAt->diffInMinutes($now);
-                $days = floor($totalMinutes / (24 * 60));
-                $hours = floor(($totalMinutes % (24 * 60)) / 60);
-                $minutes = $totalMinutes % 60;
+                $days = (int) floor($totalMinutes / (24 * 60));
+                $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
+                $minutes = (int) ($totalMinutes % 60);
 
                 // Format pending time string
                 $pendingTimeFormatted = '';
@@ -589,16 +615,23 @@ class DashboardService
         if (!$user->canViewAllReports()) {
             $query->where(function($q) use ($user) {
                 // Reports created by user
+                $userRoles = $user->getRoleNames()->toArray();
                 $q->whereIn('subject_id', function($subQuery) use ($user) {
                     $subQuery->select('id')
                         ->from('vendor_reports')
                         ->where('created_by', $user->id);
                 })
-                // OR reports user is assigned to approve
-                ->orWhereIn('subject_id', function($subQuery) use ($user) {
+                // OR reports user is assigned to approve (either specifically or by role)
+                ->orWhereIn('subject_id', function($subQuery) use ($user, $userRoles) {
                     $subQuery->select('report_id')
                         ->from('vendor_report_approval_steps')
-                        ->where('assignee_user_id', $user->id);
+                        ->where(function($q) use ($user, $userRoles) {
+                            $q->where('assignee_user_id', $user->id)
+                              ->orWhere(function($sq) use ($userRoles) {
+                                  $sq->whereNull('assignee_user_id')
+                                     ->whereIn('assignee_role', $userRoles);
+                              });
+                        });
                 });
             });
         }
