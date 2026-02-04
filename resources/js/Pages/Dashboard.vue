@@ -31,7 +31,7 @@
                         class="flex-1"
                         style="min-width: 200px"
                     >
-                        <MetricCard v-bind="metric" />
+                        <MetricCard v-bind="metric" :loading="refreshing" />
                     </div>
                 </div>
             </div>
@@ -40,16 +40,16 @@
             <div class="col-12 mb-5"></div>
 
             <!-- Pending Actions Table -->
-            <div v-if="localPendingActions.length > 0" class="col-12 lg:col-8">
+            <div class="col-12 lg:col-8">
                 <Card>
                     <template #title>
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-bell text-orange-500"></i>
                                 <span>Phiếu cần xử lý</span>
-                                <Badge :value="localPendingActions.length" severity="danger" />
+                                <Badge v-if="localPendingActions.length > 0" :value="localPendingActions.length" severity="danger" />
                             </div>
-                            <IconField>
+                            <IconField v-if="localPendingActions.length > 0">
                                 <InputIcon>
                                     <i class="pi pi-search" />
                                 </InputIcon>
@@ -62,7 +62,16 @@
                         </div>
                     </template>
                     <template #content>
+                        <!-- Empty State -->
+                        <div v-if="localPendingActions.length === 0" class="flex flex-column align-items-center justify-content-center py-8">
+                            <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
+                            <h3 class="text-xl font-semibold mb-2">Không có phiếu cần xử lý</h3>
+                            <p class="text-500 text-center">Tất cả phiếu đã được xử lý xong.</p>
+                        </div>
+
+                        <!-- Data Table -->
                         <DataTable
+                            v-else
                             v-model:filters="filters"
                             :value="localPendingActions"
                             :rows="5"
@@ -72,6 +81,12 @@
                             stripedRows
                             class="p-datatable-sm"
                         >
+                            <template #empty>
+                                <div class="text-center py-4">
+                                    <i class="pi pi-search text-4xl text-400 mb-3"></i>
+                                    <p class="text-500">Không tìm thấy phiếu nào.</p>
+                                </div>
+                            </template>
                             <Column field="code" header="Mã phiếu" style="min-width: 120px">
                                 <template #body="slotProps">
                                     <Link
@@ -203,7 +218,26 @@
                         </div>
                     </template>
                     <template #content>
-                        <Timeline :value="localActivities" class="customized-timeline">
+                        <!-- Loading State -->
+                        <div v-if="loadingActivities" class="flex flex-column gap-3">
+                            <div v-for="i in 5" :key="i" class="flex gap-3">
+                                <Skeleton shape="circle" size="2rem" />
+                                <div class="flex-1">
+                                    <Skeleton width="60%" class="mb-2" />
+                                    <Skeleton width="40%" height=".8rem" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-else-if="localActivities.length === 0" class="flex flex-column align-items-center justify-content-center py-8">
+                            <i class="pi pi-inbox text-6xl text-400 mb-4"></i>
+                            <h3 class="text-xl font-semibold mb-2">Chưa có hoạt động nào</h3>
+                            <p class="text-500 text-center">Các hoạt động của hệ thống sẽ được hiển thị tại đây.</p>
+                        </div>
+
+                        <!-- Timeline -->
+                        <Timeline v-else :value="localActivities" class="customized-timeline">
                             <template #marker="slotProps">
                                 <span
                                     class="flex w-2rem h-2rem align-items-center justify-content-center text-white border-circle z-1 shadow-2"
@@ -253,6 +287,7 @@ import Timeline from 'primevue/timeline';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
+import Skeleton from 'primevue/skeleton';
 
 const props = defineProps({
     metrics: Array,

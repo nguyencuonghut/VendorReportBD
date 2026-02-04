@@ -29,6 +29,21 @@
                 currentPageReportTemplate="Hiển thị từ {first} đến {last} trong tổng số {totalRecords} phiếu"
                 :loading="loading"
             >
+                <template #empty>
+                    <div class="flex flex-column align-items-center justify-content-center py-8">
+                        <i class="pi pi-inbox text-6xl text-400 mb-4"></i>
+                        <h3 class="text-xl font-semibold mb-2">Không có phiếu nào</h3>
+                        <p class="text-500 text-center mb-4">
+                            {{ hasActiveFilters ? 'Không tìm thấy phiếu nào phù hợp với bộ lọc.' : 'Hãy tạo phiếu đầu tiên của bạn.' }}
+                        </p>
+                        <Button
+                            v-if="!hasActiveFilters"
+                            label="Tạo phiếu mới"
+                            icon="pi pi-plus"
+                            @click="router.visit('/vendor-reports/create')"
+                        />
+                    </div>
+                </template>
                 <template #header>
                     <div class="flex flex-col gap-4">
                         <div class="flex flex-wrap gap-2 items-center justify-between">
@@ -226,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { VendorReportService } from '@/services';
@@ -301,6 +316,12 @@ const workflowTypeOptions = Object.entries(props.workflows || {}).map(([value, l
 // Filters for DataTable
 const filters = ref({
     'global': { value: null, matchMode: FilterMatchMode.CONTAINS }
+});
+
+// Check if filters are active
+const hasActiveFilters = computed(() => {
+    return !!(searchQuery.value || statusFilter.value || workflowTypeFilter.value ||
+              departmentFilter.value || creatorFilter.value);
 });
 
 // Watch for props changes

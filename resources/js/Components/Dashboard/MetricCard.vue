@@ -1,16 +1,28 @@
 <template>
-    <Card class="metric-card" :class="{ 'cursor-pointer': onClick }" @click="handleClick">
+    <Card class="metric-card" :class="{ 'cursor-pointer': onClick && !loading }" @click="handleClick">
         <template #content>
-            <div class="flex align-items-center gap-2 mb-3">
-                <i :class="icon" class="text-2xl" :style="{ color: severityColor }"></i>
-                <span class="text-500 font-medium">{{ title }}</span>
+            <!-- Loading State -->
+            <div v-if="loading" class="flex flex-column gap-3">
+                <div class="flex align-items-center gap-2">
+                    <Skeleton shape="circle" size="2rem" />
+                    <Skeleton width="60%" height="1rem" />
+                </div>
+                <Skeleton width="40%" height="2.5rem" />
             </div>
 
-            <div class="flex align-items-baseline gap-2 mb-2">
-                <span class="text-4xl font-bold" :style="{ color: severityColor }">
-                    {{ value }}
-                </span>
-                <span v-if="subtitle" class="text-500 text-sm">{{ subtitle }}</span>
+            <!-- Normal State -->
+            <div v-else>
+                <div class="flex align-items-center gap-2 mb-3">
+                    <i :class="icon" class="text-2xl" :style="{ color: severityColor }"></i>
+                    <span class="text-500 font-medium">{{ title }}</span>
+                </div>
+
+                <div class="flex align-items-baseline gap-2 mb-2">
+                    <span class="text-4xl font-bold" :style="{ color: severityColor }">
+                        {{ value }}
+                    </span>
+                    <span v-if="subtitle" class="text-500 text-sm">{{ subtitle }}</span>
+                </div>
             </div>
         </template>
     </Card>
@@ -20,7 +32,7 @@
 import { computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Card from 'primevue/card';
-import Tag from 'primevue/tag';
+import Skeleton from 'primevue/skeleton';
 
 const props = defineProps({
     id: String,
@@ -34,7 +46,11 @@ const props = defineProps({
         validator: (value) => ['success', 'info', 'warn', 'danger', 'secondary'].includes(value)
     },
     trend: String,
-    onClick: String
+    onClick: String,
+    loading: {
+        type: Boolean,
+        default: false
+    }
 });
 
 const severityColorMap = {
