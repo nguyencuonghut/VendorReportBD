@@ -8,7 +8,7 @@ const messages = {
   vi: {
     // Auth
     auth: {
-      welcome: 'Chào mừng đến với PrimeLand!',
+      welcome: 'Chào mừng đến với HongHaFeed!',
       signInToContinue: 'Đăng nhập để tiếp tục',
       email: 'Email',
       emailPlaceholder: 'Địa chỉ email',
