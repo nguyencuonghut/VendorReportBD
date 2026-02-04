@@ -79,6 +79,24 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user can view all reports in the system.
+     * Management roles (BOD, dept head, etc.) can see all reports.
+     * Regular requesters only see their own reports.
+     */
+    public function canViewAllReports(): bool
+    {
+        return $this->hasAnyRole([
+            'admin_system',
+            'purchasing_admin',
+            'bod',
+            'dept_head',
+            'internal_control',
+            'tech_board',
+            'national_purchasing',
+        ]);
+    }
+
+    /**
      * Get the options for activity log.
      */
     public function getActivitylogOptions(): LogOptions

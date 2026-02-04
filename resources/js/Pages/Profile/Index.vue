@@ -232,7 +232,7 @@
                                         <span class="text-500 font-medium">Phiếu tôi cần duyệt</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-orange-500">{{ statistics.my_pending_approvals }}</span>
+                                        <span class="text-4xl font-bold text-orange-500">{{ statistics.i_need_approve }}</span>
                                     </div>
                                 </template>
                             </Card>
@@ -247,7 +247,7 @@
                                         <span class="text-500 font-medium">Phiếu tôi đã duyệt</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-green-500">{{ statistics.my_approved_reports }}</span>
+                                        <span class="text-4xl font-bold text-green-500">{{ statistics.i_approved }}</span>
                                     </div>
                                 </template>
                             </Card>
@@ -262,7 +262,7 @@
                                         <span class="text-500 font-medium">Phiếu tôi từ chối</span>
                                     </div>
                                     <div class="flex align-items-baseline gap-2">
-                                        <span class="text-4xl font-bold text-red-500">{{ statistics.my_rejected_reports }}</span>
+                                        <span class="text-4xl font-bold text-red-500">{{ statistics.i_rejected }}</span>
                                     </div>
                                 </template>
                             </Card>

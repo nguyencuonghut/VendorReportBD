@@ -141,7 +141,8 @@ class VendorReportController extends Controller
             ->when($request->status, fn($q, $status) => $q->where('status', $status))
             ->when($request->workflow_type, fn($q, $type) => $q->where('workflow_type', $type))
             ->when($request->department_id, function($q, $deptId) {
-                $q->whereHas('creator.department', fn($query) => $query->where('id', $deptId));
+                // Optimize: filter by creator's department_id directly instead of nested whereHas
+                $q->whereHas('creator', fn($query) => $query->where('department_id', $deptId));
             })
             ->when($request->created_by, fn($q, $creatorId) => $q->where('created_by', $creatorId))
             ->when($request->search, function($q, $search) {

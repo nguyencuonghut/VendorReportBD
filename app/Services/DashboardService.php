@@ -241,7 +241,7 @@ class DashboardService
         // For approvers: get pending approval steps
         $steps = VendorReportApprovalStep::with([
             'report' => function($q) {
-                $q->select('id', 'code', 'title', 'workflow_type', 'submitted_at');
+                $q->select('id', 'code', 'title', 'workflow_type', 'submitted_at', 'created_by');
             },
             'report.creator:id,name,department_id',
             'report.creator.department:id,name',
@@ -253,6 +253,21 @@ class DashboardService
 
         return $steps->map(function ($step) {
             $report = $step->report;
+            $createdAt = $step->created_at;
+            $now = now();
+
+            // Calculate detailed pending time
+            $totalMinutes = $createdAt->diffInMinutes($now);
+            $days = floor($totalMinutes / (24 * 60));
+            $hours = floor(($totalMinutes % (24 * 60)) / 60);
+            $minutes = $totalMinutes % 60;
+
+            // Format pending time string
+            $pendingTimeFormatted = '';
+            if ($days > 0) $pendingTimeFormatted .= "{$days} ngày ";
+            if ($hours > 0) $pendingTimeFormatted .= "{$hours} giờ ";
+            if ($minutes > 0 || $pendingTimeFormatted === '') $pendingTimeFormatted .= "{$minutes} phút";
+
             return [
                 'id' => $report->id,
                 'code' => $report->code,
@@ -261,16 +276,20 @@ class DashboardService
                 'workflow_type_label' => $report->getWorkflowTypeLabel(),
                 'current_step_label' => $step->getStepKeyLabel(),
                 'assignee_name' => $step->assigneeUser?->name,
-                'days_pending' => $step->created_at->diffInDays(now()),
+                'days_pending' => $createdAt->diffInDays($now),
+                'pending_time_formatted' => trim($pendingTimeFormatted),
                 'submitted_at' => $report->submitted_at->format('d/m/Y'),
+                'submitted_at_timestamp' => $report->submitted_at->timestamp,
                 'department_name' => $report->creator?->department?->name,
                 'creator_name' => $report->creator?->name,
                 'requires_selection' => $step->requires_selection,
             ];
         })
         ->sortByDesc(function ($item) {
-            // URGENT lên đầu
-            return $item['workflow_type'] === 'URGENT' ? 1000 + $item['days_pending'] : $item['days_pending'];
+            // URGENT lên đầu, sau đó sắp xếp theo submitted_at (mới nhất trước)
+            return $item['workflow_type'] === 'URGENT'
+                ? 9999999999 + $item['submitted_at_timestamp']
+                : $item['submitted_at_timestamp'];
         })
         ->values()
         ->all();
@@ -281,8 +300,24 @@ class DashboardService
         return VendorReport::with(['creator.department', 'currentStep.assigneeUser'])
             ->where('status', 'IN_APPROVAL')
             ->where('submitted_at', '<', now()->subDays(5))
+            ->orderByDesc('submitted_at') // Mới nhất trước
             ->get()
             ->map(function ($report) {
+                $submittedAt = $report->submitted_at;
+                $now = now();
+
+                // Calculate detailed pending time
+                $totalMinutes = $submittedAt->diffInMinutes($now);
+                $days = floor($totalMinutes / (24 * 60));
+                $hours = floor(($totalMinutes % (24 * 60)) / 60);
+                $minutes = $totalMinutes % 60;
+
+                // Format pending time string
+                $pendingTimeFormatted = '';
+                if ($days > 0) $pendingTimeFormatted .= "{$days} ngày ";
+                if ($hours > 0) $pendingTimeFormatted .= "{$hours} giờ ";
+                if ($minutes > 0 || $pendingTimeFormatted === '') $pendingTimeFormatted .= "{$minutes} phút";
+
                 return [
                     'id' => $report->id,
                     'code' => $report->code,
@@ -291,8 +326,9 @@ class DashboardService
                     'workflow_type_label' => $report->getWorkflowTypeLabel(),
                     'current_step_label' => $report->currentStep?->getStepKeyLabel(),
                     'assignee_name' => $report->currentStep?->assigneeUser?->name,
-                    'days_pending' => $report->submitted_at->diffInDays(now()),
-                    'submitted_at' => $report->submitted_at->format('d/m/Y'),
+                    'days_pending' => $submittedAt->diffInDays($now),
+                    'pending_time_formatted' => trim($pendingTimeFormatted),
+                    'submitted_at' => $submittedAt->format('d/m/Y'),
                     'department_name' => $report->creator?->department?->name,
                 ];
             })
@@ -384,8 +420,8 @@ class DashboardService
         $query = VendorReport::select('status', DB::raw('count(*) as count'))
             ->groupBy('status');
 
-        // Only requesters see their own reports, others see all
-        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
+        // Filter by user permissions
+        if (!$user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -433,8 +469,8 @@ class DashboardService
         $query = VendorReport::select('workflow_type', DB::raw('count(*) as count'))
             ->groupBy('workflow_type');
 
-        // Only requesters see their own reports, others see all
-        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
+        // Filter by user permissions
+        if (!$user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -466,8 +502,8 @@ class DashboardService
             ->whereIn('status', ['APPROVED', 'REJECTED'])
             ->groupBy('year', 'month', 'status');
 
-        // Only requesters see their own reports, others see all
-        if ($user->hasRole('requester') && !$user->hasAnyRole(['admin_system', 'purchasing_admin', 'bod', 'dept_head', 'internal_control', 'tech_board', 'national_purchasing'])) {
+        // Filter by user permissions
+        if (!$user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -550,7 +586,7 @@ class DashboardService
             ->limit($limit);
 
         // Filter by user access using subqueries
-        if (!$user->hasRole('admin_system')) {
+        if (!$user->canViewAllReports()) {
             $query->where(function($q) use ($user) {
                 // Reports created by user
                 $q->whereIn('subject_id', function($subQuery) use ($user) {

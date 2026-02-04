@@ -116,6 +116,18 @@ class VendorReport extends Model
         return $this->belongsTo(User::class, 'purchasing_admin_id');
     }
 
+    public function department()
+    {
+        return $this->hasOneThrough(
+            Department::class,
+            User::class,
+            'id',           // Foreign key on users table
+            'id',           // Foreign key on departments table
+            'created_by',   // Local key on vendor_reports table
+            'department_id' // Local key on users table
+        );
+    }
+
     public function currentStep()
     {
         return $this->belongsTo(VendorReportApprovalStep::class, 'current_step_id');

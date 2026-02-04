@@ -43,17 +43,31 @@
             <div v-if="localPendingActions.length > 0" class="col-12 lg:col-8">
                 <Card>
                     <template #title>
-                        <div class="flex align-items-center gap-2">
-                            <i class="pi pi-bell text-orange-500"></i>
-                            <span>Phiếu cần xử lý</span>
-                            <Badge :value="localPendingActions.length" severity="danger" />
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-bell text-orange-500"></i>
+                                <span>Phiếu cần xử lý</span>
+                                <Badge :value="localPendingActions.length" severity="danger" />
+                            </div>
+                            <IconField>
+                                <InputIcon>
+                                    <i class="pi pi-search" />
+                                </InputIcon>
+                                <InputText
+                                    v-model="filters['global'].value"
+                                    placeholder="Tìm kiếm..."
+                                    size="small"
+                                />
+                            </IconField>
                         </div>
                     </template>
                     <template #content>
                         <DataTable
+                            v-model:filters="filters"
                             :value="localPendingActions"
                             :rows="5"
-                            :paginator="pendingActions.length > 5"
+                            :paginator="localPendingActions.length > 5"
+                            :globalFilterFields="['code', 'title', 'department_name', 'creator_name']"
                             responsiveLayout="scroll"
                             stripedRows
                             class="p-datatable-sm"
@@ -68,11 +82,13 @@
                                     </Link>
                                 </template>
                             </Column>
-                            <Column field="title" header="Tiêu đề" style="min-width: 200px">
+                            <Column field="title" header="Tiêu đề" style="min-width: 200px; max-width: 350px">
                                 <template #body="slotProps">
-                                    <div class="overflow-hidden text-overflow-ellipsis whitespace-nowrap"
-                                         style="max-width: 250px"
-                                         :title="slotProps.data.title">
+                                    <div
+                                        class="text-ellipsis overflow-hidden"
+                                        style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; max-height: 2.8em;"
+                                        :title="slotProps.data.title"
+                                    >
                                         {{ slotProps.data.title }}
                                     </div>
                                 </template>
@@ -87,11 +103,11 @@
                                 </template>
                             </Column>
                             <Column field="current_step_label" header="Bước hiện tại" style="min-width: 150px" />
-                            <Column field="days_pending" header="Thời gian chờ" style="min-width: 120px">
+                            <Column field="days_pending" header="Thời gian chờ" style="min-width: 150px">
                                 <template #body="slotProps">
                                     <Tag
                                         :severity="slotProps.data.days_pending > 5 ? 'danger' : 'secondary'"
-                                        :value="`${Math.round(slotProps.data.days_pending)} ngày`"
+                                        :value="slotProps.data.pending_time_formatted"
                                     />
                                 </template>
                             </Column>
@@ -221,9 +237,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { router, Link, Head } from '@inertiajs/vue3';
 import MetricCard from '@/Components/Dashboard/MetricCard.vue';
+import { FilterMatchMode } from '@primevue/core/api';
 import DashboardChart from '@/Components/Dashboard/DashboardChart.vue';
 import { DashboardService } from '@/services';
 import Card from 'primevue/card';
@@ -233,6 +250,9 @@ import Column from 'primevue/column';
 import Tag from 'primevue/tag';
 import Badge from 'primevue/badge';
 import Timeline from 'primevue/timeline';
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
+import InputText from 'primevue/inputtext';
 
 const props = defineProps({
     metrics: Array,
@@ -254,6 +274,11 @@ const loadingCharts = ref({
 // Local state copies to avoid mutating props
 const localActivities = ref([...props.activities]);
 const localPendingActions = ref([...props.pendingActions]);
+
+// Filters for DataTable
+const filters = ref({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+});
 
 const statusChartData = ref({ labels: [], datasets: [] });
 const trendChartData = ref({ labels: [], datasets: [] });
