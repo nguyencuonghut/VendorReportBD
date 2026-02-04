@@ -96,7 +96,7 @@ class UserSeeder extends Seeder
         // Create tech board users (KT)
         $techBoard1 = User::factory()->create([
             'name' => 'Hồ Trung Tín',
-            'email' => 'kt@honghafeed.com.vn',
+            'email' => 'bkt@honghafeed.com.vn',
             'password' => bcrypt('Hongha@123'),
             'department_id' => $departments['KT'] ?? null,
         ]);
@@ -104,7 +104,7 @@ class UserSeeder extends Seeder
 
         $techBoard2 = User::factory()->create([
             'name' => 'Mai Văn I',
-            'email' => 'kt2@honghafeed.com.vn',
+            'email' => 'bkt2@honghafeed.com.vn',
             'password' => bcrypt('Hongha@123'),
             'department_id' => $departments['KT'] ?? null,
         ]);
@@ -121,7 +121,7 @@ class UserSeeder extends Seeder
 
         $bod2 = User::factory()->create([
             'name' => 'Đỗ Tiến Quân',
-            'email' => 'nguyencuonghut55@gmail.com',
+            'email' => 'gd2@honghafeed.com.vn',
             'password' => bcrypt('Hongha@123'),
             'department_id' => $departments['BGD'] ?? null,
         ]);
