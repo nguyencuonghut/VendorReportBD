@@ -11,6 +11,7 @@ use App\Http\Controllers\VendorReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\NotificationController;
 
 /*** Login Routes ***/
 Route::group(['middleware' => 'guest'], function () {
@@ -50,6 +51,17 @@ Route::group(['middleware' => 'auth'], function () {
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Notification Routes
+    Route::prefix('api/notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+        Route::post('/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+        Route::post('/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
+        Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+        Route::delete('/', [NotificationController::class, 'destroyAll'])->name('notifications.destroy-all');
+        Route::post('/clear-read', [NotificationController::class, 'clearRead'])->name('notifications.clear-read');
+    });
 
     // User Management Routes - Authorization handled by UserPolicy
     // Bulk delete route must be defined before resource routes

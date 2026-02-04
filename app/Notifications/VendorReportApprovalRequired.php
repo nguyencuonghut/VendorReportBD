@@ -28,7 +28,7 @@ class VendorReportApprovalRequired extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -60,11 +60,19 @@ class VendorReportApprovalRequired extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
+        $previousApprover = $this->step->step_order > 1
+            ? $this->report->approvalSteps()->where('step_order', $this->step->step_order - 1)->first()?->actedByUser?->name
+            : $this->report->creator->name;
+
         return [
+            'type' => 'vendor_report_approval_required',
             'report_id' => $this->report->id,
             'report_code' => $this->report->code,
             'report_title' => $this->report->title,
             'step_order' => $this->step->step_order,
+            'previous_approver' => $previousApprover,
+            'message' => "Phiếu {$this->report->code} cần bạn phê duyệt",
+            'action_url' => "/vendor-reports/{$this->report->id}",
         ];
     }
 }

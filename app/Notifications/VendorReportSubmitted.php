@@ -26,7 +26,7 @@ class VendorReportSubmitted extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -53,9 +53,13 @@ class VendorReportSubmitted extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
+            'type' => 'vendor_report_submitted',
             'report_id' => $this->report->id,
             'report_code' => $this->report->code,
             'report_title' => $this->report->title,
+            'creator_name' => $this->report->creator->name,
+            'message' => "Phiếu {$this->report->code} cần bạn phê duyệt",
+            'action_url' => "/vendor-reports/{$this->report->id}",
         ];
     }
 }

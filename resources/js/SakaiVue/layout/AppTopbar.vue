@@ -3,6 +3,7 @@ import { useLayout } from '@/SakaiVue/layout/composables/layout';
 import AppConfigurator from './AppConfigurator.vue';
 import NavLink from '@/Components/NavLink.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 import { AuthService } from '@/services';
 import { useI18n } from '@/composables/useI18n';
 import { computed } from 'vue'
@@ -51,6 +52,9 @@ const handleLogout = () => {
 
         <div class="layout-topbar-actions">
             <div class="layout-config-menu">
+                <!-- Notification Bell -->
+                <NotificationBell />
+
                 <button type="button" class="layout-topbar-action" @click="toggleDarkMode">
                     <i :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"></i>
                 </button>

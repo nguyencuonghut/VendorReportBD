@@ -29,7 +29,7 @@ class VendorReportCanceled extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -57,11 +57,14 @@ class VendorReportCanceled extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
+            'type' => 'vendor_report_canceled',
             'report_id' => $this->report->id,
             'report_code' => $this->report->code,
             'report_title' => $this->report->title,
             'canceled_by' => $this->admin->name,
             'canceled_reason' => $this->reason,
+            'message' => "Phiếu {$this->report->code} đã bị hủy",
+            'action_url' => "/vendor-reports/{$this->report->id}",
         ];
     }
 }

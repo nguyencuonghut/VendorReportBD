@@ -29,7 +29,7 @@ class VendorReportRejected extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -58,11 +58,15 @@ class VendorReportRejected extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
+            'type' => 'vendor_report_rejected',
             'report_id' => $this->report->id,
             'report_code' => $this->report->code,
             'report_title' => $this->report->title,
             'rejection_note' => $this->rejectionNote,
+            'rejected_by' => $this->step->actedByUser->name,
             'step_order' => $this->step->step_order,
+            'message' => "Phiếu {$this->report->code} đã bị từ chối",
+            'action_url' => "/vendor-reports/{$this->report->id}",
         ];
     }
 }
