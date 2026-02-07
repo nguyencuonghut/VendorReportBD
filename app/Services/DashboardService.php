@@ -176,7 +176,9 @@ class DashboardService
     {
         $userRoles = $user->getRoleNames()->toArray();
 
-        $pendingCount = VendorReportApprovalStep::where('status', 'PENDING')
+        // Lấy các pending steps và lọc chỉ lấy steps hiện tại đang chờ
+        $pendingSteps = VendorReportApprovalStep::with('report.approvalSteps:id,report_id,step_order,status')
+            ->where('status', 'PENDING')
             ->where(function($query) use ($user, $userRoles) {
                 $query->where('assignee_user_id', $user->id)
                     ->orWhere(function($q) use ($userRoles) {
@@ -184,7 +186,20 @@ class DashboardService
                           ->whereIn('assignee_role', $userRoles);
                     });
             })
-            ->count();
+            ->get()
+            // Chỉ lấy steps mà TẤT CẢ các steps trước đó đã approved
+            ->filter(function($step) {
+                $allSteps = $step->report->approvalSteps->sortBy('step_order');
+                $previousSteps = $allSteps->where('step_order', '<', $step->step_order);
+
+                if ($previousSteps->isEmpty()) {
+                    return true;
+                }
+
+                return $previousSteps->every(fn($prevStep) => $prevStep->status === 'APPROVED');
+            });
+
+        $pendingCount = $pendingSteps->count();
 
         $approvedToday = VendorReportApprovalStep::where('acted_by', $user->id)
             ->where('status', 'APPROVED')
@@ -255,6 +270,11 @@ class DashboardService
             return $this->getStuckReports();
         }
 
+        // Special case: purchasing_admin xem tất cả phiếu APPROVED (để theo dõi, chạy giấy tờ)
+        if ($user->hasRole('purchasing_admin')) {
+            return $this->getApprovedReportsForPurchasingAdmin();
+        }
+
         // Get user's roles
         $userRoles = $user->getRoleNames()->toArray();
 
@@ -262,12 +282,14 @@ class DashboardService
         // Lấy các step mà:
         // 1. Đã được assign cụ thể cho user (assignee_user_id = user.id)
         // 2. HOẶC chưa assign cụ thể nhưng role của step khớp với role của user
+        // 3. TẤT CẢ các steps trước đó đã APPROVED (đây là step hiện tại đang chờ)
         $steps = VendorReportApprovalStep::with([
             'report' => function($q) {
                 $q->select('id', 'code', 'title', 'workflow_type', 'submitted_at', 'created_by');
             },
             'report.creator:id,name,department_id',
             'report.creator.department:id,name',
+            'report.approvalSteps:id,report_id,step_order,status',
             'assigneeUser:id,name'
         ])
             ->where('status', 'PENDING')
@@ -280,7 +302,22 @@ class DashboardService
                           ->whereIn('assignee_role', $userRoles);
                     });
             })
-            ->get();
+            ->get()
+            // Chỉ lấy steps mà TẤT CẢ các steps trước đó đã approved
+            ->filter(function($step) {
+                $allSteps = $step->report->approvalSteps->sortBy('step_order');
+
+                // Tìm tất cả steps trước step hiện tại
+                $previousSteps = $allSteps->where('step_order', '<', $step->step_order);
+
+                // Nếu không có step nào trước đó, step này là step đầu tiên
+                if ($previousSteps->isEmpty()) {
+                    return true;
+                }
+
+                // Kiểm tra xem TẤT CẢ các steps trước đó đã APPROVED chưa
+                return $previousSteps->every(fn($prevStep) => $prevStep->status === 'APPROVED');
+            });
 
         return $steps->map(function ($step) {
             $report = $step->report;
@@ -288,10 +325,10 @@ class DashboardService
             $now = now();
 
             // Calculate detailed pending time
-            $totalMinutes = $createdAt->diffInMinutes($now);
+            $totalMinutes = (int) $createdAt->diffInMinutes($now);
             $days = (int) floor($totalMinutes / (24 * 60));
             $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
-            $minutes = (int) ($totalMinutes % 60);
+            $minutes = $totalMinutes % 60;
 
             // Format pending time string
             $pendingTimeFormatted = '';
@@ -356,6 +393,49 @@ class DashboardService
                     'pending_time_formatted' => trim($pendingTimeFormatted),
                     'submitted_at' => $submittedAt->format('d/m/Y'),
                     'department_name' => $report->creator?->department?->name,
+                ];
+            })
+            ->all();
+    }
+
+    private function getApprovedReportsForPurchasingAdmin(): array
+    {
+        return VendorReport::with(['creator.department'])
+            ->where('status', 'APPROVED')
+            ->orderByDesc('approved_at') // Mới duyệt trước
+            ->limit(50) // Giới hạn 50 phiếu gần nhất
+            ->get()
+            ->map(function ($report) {
+                $approvedAt = $report->approved_at;
+                $now = now();
+
+                // Calculate time since approved
+                $totalMinutes = $approvedAt->diffInMinutes($now);
+                $days = (int) floor($totalMinutes / (24 * 60));
+                $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
+                $minutes = (int) ($totalMinutes % 60);
+
+                // Format time string
+                $timeFormatted = '';
+                if ($days > 0) $timeFormatted .= "{$days} ngày ";
+                if ($hours > 0) $timeFormatted .= "{$hours} giờ ";
+                if ($minutes > 0 || $timeFormatted === '') $timeFormatted .= "{$minutes} phút";
+
+                return [
+                    'id' => $report->id,
+                    'code' => $report->code,
+                    'title' => $report->title,
+                    'workflow_type' => $report->workflow_type,
+                    'workflow_type_label' => $report->getWorkflowTypeLabel(),
+                    'current_step_label' => 'Đã hoàn tất',
+                    'assignee_name' => null,
+                    'days_pending' => 0,
+                    'pending_time_formatted' => "Đã duyệt {$timeFormatted} trước",
+                    'submitted_at' => $report->submitted_at->format('d/m/Y'),
+                    'submitted_at_timestamp' => $report->submitted_at->timestamp,
+                    'department_name' => $report->creator?->department?->name,
+                    'creator_name' => $report->creator?->name,
+                    'requires_selection' => false,
                 ];
             })
             ->all();

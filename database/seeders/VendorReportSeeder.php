@@ -238,8 +238,9 @@ class VendorReportSeeder extends Seeder
 
             case 'APPROVED':
                 // Full cycle completed
-                $submittedAt = $createdAt->copy()->addHours(fake()->numberBetween(1, 12));
-                $approvedAt = $submittedAt->copy()->addDays(fake()->numberBetween(1, 15));
+                // Ensure approved_at is always in the past by subtracting from created_at
+                $submittedAt = $createdAt->copy()->subDays(fake()->numberBetween(15, 30))->addHours(fake()->numberBetween(1, 12));
+                $approvedAt = $submittedAt->copy()->addDays(fake()->numberBetween(1, 10));
 
                 $report->submitted_at = $submittedAt;
                 $report->approved_at = $approvedAt;
@@ -247,7 +248,8 @@ class VendorReportSeeder extends Seeder
 
             case 'REJECTED':
                 // Submitted and rejected
-                $submittedAt = $createdAt->copy()->addHours(fake()->numberBetween(1, 12));
+                // Ensure rejected_at is always in the past
+                $submittedAt = $createdAt->copy()->subDays(fake()->numberBetween(10, 20))->addHours(fake()->numberBetween(1, 12));
                 $rejectedAt = $submittedAt->copy()->addDays(fake()->numberBetween(1, 7));
 
                 $report->submitted_at = $submittedAt;

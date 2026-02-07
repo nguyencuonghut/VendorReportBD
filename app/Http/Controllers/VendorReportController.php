@@ -68,28 +68,35 @@ class VendorReportController extends Controller
                     ]);
 
                     $q->where(function($query) use ($user) {
-                        // Phiếu của nhân viên cùng phòng
-                        $query->whereHas('creator', fn($q) => $q->where('department_id', $user->department_id))
-                              // Hoặc phiếu cần mình duyệt
-                              ->orWhereHas('currentStep', function($q) use ($user) {
-                                  $q->where(function($q2) use ($user) {
-                                      // Trường hợp 1: Đã được assign cụ thể cho user
-                                      $q2->where('assignee_user_id', $user->id)
-                                         // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                                         ->orWhere(function($q3) use ($user) {
-                                             $q3->whereNull('assignee_user_id');
-
-                                             // Check role của user và match với assignee_role
-                                             $userRoles = $user->roles->pluck('name')->toArray();
-                                             $q3->whereIn('assignee_role', $userRoles);
-                                         });
-                                  });
-                              })
-                              // Hoặc phiếu mà mình đã duyệt/từ chối
-                              ->orWhereHas('approvalSteps', function($q) use ($user) {
-                                  $q->where('acted_by', $user->id)
-                                    ->whereIn('status', ['APPROVED', 'REJECTED']);
+                        // Phiếu của nhân viên cùng phòng (trừ DRAFT của người khác)
+                        $query->where(function($q) use ($user) {
+                            $q->whereHas('creator', fn($q2) => $q2->where('department_id', $user->department_id))
+                              ->where(function($q2) use ($user) {
+                                  // Xem DRAFT của chính mình, hoặc phiếu khác DRAFT của người khác
+                                  $q2->where('created_by', $user->id)
+                                     ->orWhere('status', '!=', 'DRAFT');
                               });
+                        })
+                        // Hoặc phiếu cần mình duyệt
+                        ->orWhereHas('currentStep', function($q) use ($user) {
+                            $q->where(function($q2) use ($user) {
+                                // Trường hợp 1: Đã được assign cụ thể cho user
+                                $q2->where('assignee_user_id', $user->id)
+                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                                   ->orWhere(function($q3) use ($user) {
+                                       $q3->whereNull('assignee_user_id');
+
+                                       // Check role của user và match với assignee_role
+                                       $userRoles = $user->roles->pluck('name')->toArray();
+                                       $q3->whereIn('assignee_role', $userRoles);
+                                   });
+                            });
+                        })
+                        // Hoặc phiếu mà mình đã duyệt/từ chối
+                        ->orWhereHas('approvalSteps', function($q) use ($user) {
+                            $q->where('acted_by', $user->id)
+                              ->whereIn('status', ['APPROVED', 'REJECTED']);
+                        });
                     });
                     return;
                 }
@@ -100,10 +107,15 @@ class VendorReportController extends Controller
                     return;
                 }
 
-                // Purchasing Admin: xem phiếu được gán (trừ DRAFT)
+                // Purchasing Admin: xem phiếu được gán (khác DRAFT) HOẶC tất cả phiếu APPROVED
                 if ($user->hasRole('purchasing_admin')) {
-                    $q->where('purchasing_admin_id', $user->id)
-                      ->where('status', '!=', 'DRAFT');
+                    $q->where(function($query) use ($user) {
+                        // Phiếu được gán cho mình (khác DRAFT)
+                        $query->where(function($q) use ($user) {
+                            $q->where('purchasing_admin_id', $user->id)
+                              ->where('status', 'APPROVED');
+                        });
+                    });
                     return;
                 }
 
