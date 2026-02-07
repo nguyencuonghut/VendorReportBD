@@ -119,7 +119,14 @@
                                     />
                                 </template>
                             </Column>
-                            <Column field="current_step_label" header="Bước hiện tại" style="min-width: 150px" />
+                            <Column field="current_step_label" header="Bước hiện tại" style="min-width: 150px">
+                                <template #body="slotProps">
+                                    <Tag
+                                        :severity="getStepSeverity(slotProps.data.current_step_label)"
+                                        :value="slotProps.data.current_step_label"
+                                    />
+                                </template>
+                            </Column>
                             <Column field="days_pending" header="Thời gian chờ" style="min-width: 150px">
                                 <template #body="slotProps">
                                     <Tag
@@ -369,6 +376,39 @@ const refreshActivities = async () => {
             loadingActivities.value = false;
         }
     });
+};
+
+const getStepSeverity = (stepLabel) => {
+    if (!stepLabel) return 'secondary';
+
+    const label = stepLabel.toLowerCase();
+
+    // Đã hoàn tất - Success (xanh lá)
+    if (label.includes('hoàn tất') || label.includes('đã duyệt')) {
+        return 'success';
+    }
+
+    // Ban giám đốc - Danger (đỏ) - Cấp cao nhất, quyết định cuối cùng
+    if (label.includes('giám đốc') || label.includes('bod')) {
+        return 'danger';
+    }
+
+    // Ban kỹ thuật / Mua hàng toàn quốc - Warn (cam) - Các bước đặc biệt ở giữa
+    if (label.includes('kỹ thuật') || label.includes('mua hàng') || label.includes('toàn quốc')) {
+        return 'warn';
+    }
+
+    // Kiểm soát nội bộ - Secondary (xám) - Bước kiểm tra
+    if (label.includes('kiểm soát') || label.includes('ksnb')) {
+        return 'secondary';
+    }
+
+    // Trưởng phòng - Info (xanh dương) - Bước đầu tiên
+    if (label.includes('trưởng phòng')) {
+        return 'info';
+    }
+
+    return 'secondary';
 };
 
 const refreshDashboard = async () => {
