@@ -119,6 +119,12 @@ class VendorReportController extends Controller
                     return;
                 }
 
+                // Accountant: xem TẤT CẢ phiếu APPROVED (để làm kế toán)
+                if ($user->hasRole('accountant')) {
+                    $q->where('status', 'APPROVED');
+                    return;
+                }
+
                 // Các role duyệt khác: xem phiếu cần duyệt hoặc đã duyệt
                 $approverRoles = ['internal_control', 'national_purchasing', 'tech_board', 'bod'];
                 if ($user->hasAnyRole($approverRoles)) {

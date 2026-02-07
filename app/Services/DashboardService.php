@@ -24,6 +24,10 @@ class DashboardService
             return $this->getPurchasingAdminMetrics($user);
         }
 
+        if ($user->hasRole('accountant')) {
+            return $this->getAccountantMetrics($user);
+        }
+
         // Get user's roles
         $userRoles = $user->getRoleNames()->toArray();
 
@@ -172,6 +176,52 @@ class DashboardService
         ];
     }
 
+    private function getAccountantMetrics(User $user): array
+    {
+        $totalApproved = VendorReport::where('status', 'APPROVED')->count();
+        $approvedToday = VendorReport::where('status', 'APPROVED')
+            ->whereDate('approved_at', today())
+            ->count();
+        $approvedThisWeek = VendorReport::where('status', 'APPROVED')
+            ->whereBetween('approved_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->count();
+        $approvedThisMonth = VendorReport::where('status', 'APPROVED')
+            ->whereMonth('approved_at', now()->month)
+            ->whereYear('approved_at', now()->year)
+            ->count();
+
+        return [
+            [
+                'id' => 'all_approved',
+                'title' => 'Tổng phiếu đã duyệt',
+                'value' => $totalApproved,
+                'icon' => 'pi pi-check-circle',
+                'severity' => 'success',
+            ],
+            [
+                'id' => 'approved_today',
+                'title' => 'Duyệt hôm nay',
+                'value' => $approvedToday,
+                'icon' => 'pi pi-calendar',
+                'severity' => 'info',
+            ],
+            [
+                'id' => 'approved_this_week',
+                'title' => 'Duyệt tuần này',
+                'value' => $approvedThisWeek,
+                'icon' => 'pi pi-calendar-plus',
+                'severity' => 'secondary',
+            ],
+            [
+                'id' => 'approved_this_month',
+                'title' => 'Duyệt tháng này',
+                'value' => $approvedThisMonth,
+                'icon' => 'pi pi-chart-bar',
+                'severity' => 'warn',
+            ],
+        ];
+    }
+
     private function getApproverMetrics(User $user): array
     {
         $userRoles = $user->getRoleNames()->toArray();
@@ -273,6 +323,11 @@ class DashboardService
         // Special case: purchasing_admin xem tất cả phiếu APPROVED (để theo dõi, chạy giấy tờ)
         if ($user->hasRole('purchasing_admin')) {
             return $this->getApprovedReportsForPurchasingAdmin();
+        }
+
+        // Special case: accountant xem tất cả phiếu APPROVED (để làm kế toán)
+        if ($user->hasRole('accountant')) {
+            return $this->getApprovedReportsForAccountant();
         }
 
         // Get user's roles
@@ -414,6 +469,49 @@ class DashboardService
                 $days = (int) floor($totalMinutes / (24 * 60));
                 $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
                 $minutes = (int) ($totalMinutes % 60);
+
+                // Format time string
+                $timeFormatted = '';
+                if ($days > 0) $timeFormatted .= "{$days} ngày ";
+                if ($hours > 0) $timeFormatted .= "{$hours} giờ ";
+                if ($minutes > 0 || $timeFormatted === '') $timeFormatted .= "{$minutes} phút";
+
+                return [
+                    'id' => $report->id,
+                    'code' => $report->code,
+                    'title' => $report->title,
+                    'workflow_type' => $report->workflow_type,
+                    'workflow_type_label' => $report->getWorkflowTypeLabel(),
+                    'current_step_label' => 'Đã hoàn tất',
+                    'assignee_name' => null,
+                    'days_pending' => 0,
+                    'pending_time_formatted' => "Đã duyệt {$timeFormatted} trước",
+                    'submitted_at' => $report->submitted_at->format('d/m/Y'),
+                    'submitted_at_timestamp' => $report->submitted_at->timestamp,
+                    'department_name' => $report->creator?->department?->name,
+                    'creator_name' => $report->creator?->name,
+                    'requires_selection' => false,
+                ];
+            })
+            ->all();
+    }
+
+    private function getApprovedReportsForAccountant(): array
+    {
+        return VendorReport::with(['creator.department'])
+            ->where('status', 'APPROVED')
+            ->orderByDesc('approved_at') // Mới duyệt trước
+            ->limit(100) // Kế toán xem nhiều hơn (100 phiếu)
+            ->get()
+            ->map(function ($report) {
+                $approvedAt = $report->approved_at;
+                $now = now();
+
+                // Calculate time since approved
+                $totalMinutes = (int) $approvedAt->diffInMinutes($now);
+                $days = (int) floor($totalMinutes / (24 * 60));
+                $hours = (int) floor(($totalMinutes % (24 * 60)) / 60);
+                $minutes = $totalMinutes % 60;
 
                 // Format time string
                 $timeFormatted = '';

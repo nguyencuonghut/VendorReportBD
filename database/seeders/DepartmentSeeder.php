@@ -21,6 +21,7 @@ class DepartmentSeeder extends Seeder
             ['code' => 'BGD', 'name' => 'Ban Giám Đốc'],
             ['code' => 'KT', 'name' => 'Ban Kỹ Thuật'],
             ['code' => 'IT', 'name' => 'Bộ phận IT'],
+            ['code' => 'PK', 'name' => 'Phòng Kế Toán'],
         ];
 
         foreach ($departments as $dept) {

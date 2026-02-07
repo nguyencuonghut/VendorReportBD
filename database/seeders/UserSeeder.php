@@ -127,6 +127,15 @@ class UserSeeder extends Seeder
         ]);
         $bod2->assignRole('bod');
 
+        // Create Accountant user (Kế toán)
+        $accountant = User::factory()->create([
+            'name' => 'Nguyễn Văn Kế Toán',
+            'email' => 'nvkt@honghafeed.com.vn',
+            'password' => bcrypt('Hongha@123'),
+            'department_id' => $departments['PK'] ?? null,
+        ]);
+        $accountant->assignRole('accountant');
+
         $this->command->info('Users created with workflow-specific roles successfully!');
     }
 }

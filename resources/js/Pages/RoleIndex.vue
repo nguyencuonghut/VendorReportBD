@@ -209,13 +209,13 @@ const formatDate = (date) => {
 
 const getRoleSeverity = (roleName) => {
     // New role system: workflow-specific roles
-    const workflowRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
+    const workflowRoles = ['admin_system', 'requester', 'purchasing_admin', 'accountant', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
     return workflowRoles.includes(roleName) ? 'info' : 'secondary';
 };
 
 const isSystemRole = (roleName) => {
     // Protect system roles from deletion
-    const protectedRoles = ['admin_system', 'requester', 'purchasing_admin', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
+    const protectedRoles = ['admin_system', 'requester', 'purchasing_admin', 'accountant', 'internal_control', 'national_purchasing', 'tech_board', 'bod'];
     return protectedRoles.includes(roleName);
 };
 

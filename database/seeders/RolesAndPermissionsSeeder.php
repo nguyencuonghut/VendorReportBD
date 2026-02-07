@@ -118,6 +118,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'view activity logs',
         ]);
 
+        // Accountant (Kế toán) - View all APPROVED reports for accounting purposes
+        $accountant = Role::create(['name' => 'accountant']);
+        $accountant->givePermissionTo([
+            'view vendor reports',
+            'view activity logs',
+        ]);
+
         $this->command->info('Workflow-specific roles and permissions created successfully!');
     }
 }

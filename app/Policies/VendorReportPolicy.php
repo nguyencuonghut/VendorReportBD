@@ -42,6 +42,11 @@ class VendorReportPolicy
             return true;
         }
 
+        // Accountant (Kế toán): xem TẤT CẢ phiếu APPROVED
+        if ($user->hasRole('accountant') && $vendorReport->status === 'APPROVED') {
+            return true;
+        }
+
         // Trưởng phòng: xem phiếu của nhân viên trong phòng và phiếu cần mình duyệt và đã duyệt
         if ($this->isDepartmentHead($user)) {
             // Xem phiếu của nhân viên trong phòng
