@@ -133,7 +133,7 @@
                         id="roles"
                         v-model="user.roles"
                         :options="props.roles"
-                        optionLabel="name"
+                        optionLabel="label"
                         optionValue="id"
                         :placeholder="t('users.selectRoles')"
                         :invalid="submitted && (!user.roles || user.roles.length === 0) || hasError('roles')"

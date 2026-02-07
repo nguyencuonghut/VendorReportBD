@@ -20,9 +20,10 @@ class Role extends SpatieRole
             'admin_system' => 'Quản trị hệ thống',
             'requester' => 'Người mua hàng',
             'purchasing_admin' => 'Admin mua hàng',
+            'accountant' => 'Kế toán',
             'internal_control' => 'Kiểm soát nội bộ',
             'national_purchasing' => 'Mua hàng toàn quốc',
-            'tech_board' => 'Hội đồng kỹ thuật',
+            'tech_board' => 'Ban kỹ thuật',
             'bod' => 'Ban Giám đốc',
         ];
     }
