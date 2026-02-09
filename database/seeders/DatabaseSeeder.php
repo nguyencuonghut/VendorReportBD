@@ -20,11 +20,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Update department heads after users are created
-        //$this->updateDepartmentHeads();
+        $this->updateDepartmentHeads();
 
-        //$this->call([
-        //    VendorReportSeeder::class,
-        //]);
+        $this->call([
+           VendorReportSeeder::class,
+        ]);
     }
 
     /**

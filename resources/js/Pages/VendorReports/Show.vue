@@ -23,6 +23,16 @@
             <div class="flex gap-2 pt-4 border-t">
                 <Button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" variant="outlined" @click="goBack" />
 
+                <!-- Print button (only for APPROVED) -->
+                <Button
+                    v-if="reportData.status === 'APPROVED'"
+                    label="In phiếu"
+                    icon="pi pi-print"
+                    severity="info"
+                    variant="outlined"
+                    @click="printReport"
+                />
+
                 <!-- Edit button (only for DRAFT and creator) -->
                 <Button
                     v-if="reportData.status === 'DRAFT' && canEdit"
@@ -816,6 +826,10 @@ const viewFile = (fileId) => {
 
 const downloadFile = (fileId) => {
     window.location.href = `/vendor-reports/files/${fileId}/download`;
+};
+
+const printReport = () => {
+    window.open(`/vendor-reports/${reportData.value.id}/print`, '_blank');
 };
 </script>
 

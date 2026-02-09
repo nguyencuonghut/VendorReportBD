@@ -81,9 +81,21 @@ class VendorReportApprovalStep extends Model
         return $this->belongsTo(User::class, 'assignee_user_id');
     }
 
+    // Alias for assigneeUser to match blade template naming
+    public function assignee()
+    {
+        return $this->assigneeUser();
+    }
+
     public function actedByUser()
     {
         return $this->belongsTo(User::class, 'acted_by');
+    }
+
+    // Alias for actedByUser to match blade template naming
+    public function actedBy()
+    {
+        return $this->actedByUser();
     }
 
     public function selectedNextApprover()

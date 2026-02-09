@@ -730,4 +730,33 @@ class VendorReportController extends Controller
             $file->original_name
         );
     }
+
+    /**
+     * Print vendor report
+     */
+    public function print(VendorReport $vendorReport)
+    {
+        $this->authorize('view', $vendorReport);
+
+        // Load tất cả quan hệ cần thiết để hiển thị
+        $vendorReport->load([
+            'creator:id,name,email,department_id',
+            'creator.department:id,name',
+            'purchasingAdmin:id,name,email',
+            'approvalSteps' => function($query) {
+                $query->orderBy('step_order')
+                    ->with([
+                        'assignee:id,name,email',
+                        'actedBy:id,name,email'
+                    ]);
+            },
+            'files' => function($query) {
+                $query->orderBy('created_at');
+            }
+        ]);
+
+        return view('vendor-reports.print', [
+            'report' => $vendorReport
+        ]);
+    }
 }

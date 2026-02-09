@@ -25,7 +25,6 @@ class UserSeeder extends Seeder
         ]);
         $adminSystem->assignRole('admin_system');
 
-        /*
         // Create requesters (người mua hàng - chọn nhà cung cấp)
         $requester1 = User::factory()->create([
             'name' => 'Nguyễn Văn Đồng',
@@ -136,7 +135,6 @@ class UserSeeder extends Seeder
             'department_id' => $departments['PK'] ?? null,
         ]);
         $accountant->assignRole('accountant');
-        */
 
         $this->command->info('Users created with workflow-specific roles successfully!');
     }
