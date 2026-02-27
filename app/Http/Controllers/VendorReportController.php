@@ -125,8 +125,37 @@ class VendorReportController extends Controller
                     return;
                 }
 
-                // Các role duyệt khác: xem phiếu cần duyệt hoặc đã duyệt
-                $approverRoles = ['internal_control', 'national_purchasing', 'tech_board', 'bod'];
+                // Internal Control: xem phiếu cần duyệt hoặc phiếu đã qua bước internal_control (bất kể ai duyệt)
+                if ($user->hasRole('internal_control')) {
+                    $q->where(function($query) use ($user) {
+                        // Phiếu cần mình duyệt
+                        $query->whereHas('currentStep', function($q) use ($user) {
+                            $q->where(function($q2) use ($user) {
+                                // Trường hợp 1: Đã được assign cụ thể cho user
+                                $q2->where('assignee_user_id', $user->id)
+                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
+                                   ->orWhere(function($q3) use ($user) {
+                                       $q3->whereNull('assignee_user_id')
+                                          ->where('assignee_role', 'internal_control');
+                                   });
+                            });
+                        })
+                        // Hoặc phiếu mà mình đã duyệt/từ chối
+                        ->orWhereHas('approvalSteps', function($q) use ($user) {
+                            $q->where('acted_by', $user->id)
+                              ->whereIn('status', ['APPROVED', 'REJECTED']);
+                        })
+                        // Hoặc phiếu mà BẤT KỲ AI trong internal_control đã duyệt/từ chối
+                        ->orWhereHas('approvalSteps', function($q) {
+                            $q->where('assignee_role', 'internal_control')
+                              ->whereIn('status', ['APPROVED', 'REJECTED']);
+                        });
+                    });
+                    return;
+                }
+
+                // Các role duyệt khác: xem phiếu cần duyệt hoặc CHỈ phiếu mình đã duyệt
+                $approverRoles = ['national_purchasing', 'tech_board', 'bod'];
                 if ($user->hasAnyRole($approverRoles)) {
                     $q->where(function($query) use ($user) {
                         // Phiếu cần mình duyệt
@@ -144,7 +173,7 @@ class VendorReportController extends Controller
                                    });
                             });
                         })
-                        // Hoặc phiếu mà mình đã duyệt/từ chối
+                        // Hoặc phiếu mà CHỈ MÌNH đã duyệt/từ chối
                         ->orWhereHas('approvalSteps', function($q) use ($user) {
                             $q->where('acted_by', $user->id)
                               ->whereIn('status', ['APPROVED', 'REJECTED']);
