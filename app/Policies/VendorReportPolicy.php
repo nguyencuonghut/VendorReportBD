@@ -63,13 +63,29 @@ class VendorReportPolicy
             }
         }
 
-        // Approver roles: xem phiếu cần mình duyệt hoặc đã duyệt
-        if ($user->hasAnyRole(['internal_control', 'national_purchasing', 'tech_board', 'bod'])) {
+        // Internal Control: xem phiếu cần duyệt hoặc phiếu đã qua bước internal_control
+        if ($user->hasRole('internal_control')) {
             // Phiếu cần mình duyệt
             if ($this->isCurrentApprover($user, $vendorReport)) {
                 return true;
             }
             // Phiếu mà mình đã duyệt/từ chối
+            if ($this->hasParticipatedInApproval($user, $vendorReport)) {
+                return true;
+            }
+            // Phiếu mà BẤT KỲ AI trong internal_control đã duyệt/từ chối
+            if ($this->hasRoleParticipatedInApproval('internal_control', $vendorReport)) {
+                return true;
+            }
+        }
+
+        // Approver roles khác: xem phiếu cần mình duyệt hoặc CHỈ phiếu mình đã duyệt
+        if ($user->hasAnyRole(['national_purchasing', 'tech_board', 'bod'])) {
+            // Phiếu cần mình duyệt
+            if ($this->isCurrentApprover($user, $vendorReport)) {
+                return true;
+            }
+            // Phiếu mà CHỈ MÌNH đã duyệt/từ chối
             if ($this->hasParticipatedInApproval($user, $vendorReport)) {
                 return true;
             }
@@ -207,6 +223,19 @@ class VendorReportPolicy
     {
         $participated = $vendorReport->approvalSteps()
             ->where('acted_by', $user->id)
+            ->whereIn('status', ['APPROVED', 'REJECTED'])
+            ->exists();
+
+        return $participated;
+    }
+
+    /**
+     * Helper: Kiểm tra role có tham gia duyệt phiếu này không (bất kỳ ai trong role)
+     */
+    private function hasRoleParticipatedInApproval(string $role, VendorReport $vendorReport): bool
+    {
+        $participated = $vendorReport->approvalSteps()
+            ->where('assignee_role', $role)
             ->whereIn('status', ['APPROVED', 'REJECTED'])
             ->exists();
 
