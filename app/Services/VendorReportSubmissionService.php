@@ -40,7 +40,11 @@ class VendorReportSubmissionService
             throw new \Exception("Phòng {$department->name} đang không hoạt động");
         }
 
-        if (!$department->head_user_id) {
+        // Chỉ validate head_user_id nếu workflow có bước DEPT_HEAD
+        $workflowConfig = config("vendor_report_workflows.{$report->workflow_type}");
+        $hasDeptHeadStep = collect($workflowConfig)->contains('step_key', 'DEPT_HEAD');
+
+        if ($hasDeptHeadStep && !$department->head_user_id) {
             throw new \Exception("Phòng {$department->name} chưa có Trưởng phòng");
         }
 

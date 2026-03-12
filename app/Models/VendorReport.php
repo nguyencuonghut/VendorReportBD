@@ -51,6 +51,7 @@ class VendorReport extends Model
             'SPECIAL_1' => 'Quy trình qua 2 BOD',
             'SPECIAL_2' => 'Quy trình qua Khối Mua Hàng',
             'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
+            'SPECIAL_4' => 'Quy trình bỏ qua Trưởng phòng, qua 2 BOD',
             'URGENT' => 'Quy trình khẩn cấp',
             default => $this->workflow_type,
         };
@@ -90,6 +91,7 @@ class VendorReport extends Model
             'SPECIAL_2' => 'Quy trình qua Khối Mua Hàng',
             'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
             'URGENT' => 'Quy trình khẩn cấp',
+            'SPECIAL_4' => 'Quy trình bỏ qua Trưởng phòng, qua 2 BOD',
         ];
     }
 

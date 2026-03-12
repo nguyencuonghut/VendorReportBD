@@ -124,4 +124,26 @@ return [
         ],
     ],
 
+    /**
+     * SPECIAL_4 - Phiếu đặc biệt 4 (Bỏ qua Trưởng phòng)
+     * Luồng: Người tạo → Kiểm soát nội bộ (chọn BGĐ 1) → BGĐ 1 (chọn BGĐ 2) → BGĐ 2
+     * Use case: Phiếu cần xử lý khẩn cấp, bỏ qua bước Trưởng phòng để rút ngắn thời gian
+     */
+    'SPECIAL_4' => [
+        [
+            'step_key' => 'INTERNAL_CONTROL',
+            'requires_selection' => true,
+            'selection_role' => 'bod',
+        ],
+        [
+            'step_key' => 'BOD_1',
+            'requires_selection' => true,
+            'selection_role' => 'bod',
+        ],
+        [
+            'step_key' => 'BOD_2',
+            'requires_selection' => false,
+        ],
+    ],
+
 ];

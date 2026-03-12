@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique()->nullable(); // YYYY/DEPT/SEQ (GLOBAL sequence)
             $table->string('title');
-            $table->enum('workflow_type', ['NORMAL', 'SPECIAL_1', 'SPECIAL_2', 'SPECIAL_3', 'URGENT']);
+            $table->enum('workflow_type', ['NORMAL', 'SPECIAL_1', 'SPECIAL_2', 'SPECIAL_3', 'URGENT', 'SPECIAL_4']);
             $table->foreignId('purchasing_admin_id')->nullable()->constrained('users')->nullOnDelete(); // CHỈ ĐỂ THEO DÕI, KHÔNG NẰM TRONG WORKFLOW
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->enum('status', ['DRAFT', 'SUBMITTED', 'IN_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELED'])->default('DRAFT');

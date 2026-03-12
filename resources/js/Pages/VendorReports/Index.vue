@@ -375,7 +375,8 @@ const getWorkflowSeverity = (workflowType) => {
         'SPECIAL_1': 'warn',     // Cam - Quy trình qua 2 BOD
         'SPECIAL_2': 'secondary', // Xám - Quy trình qua Khối Mua Hàng
         'SPECIAL_3': 'contrast',  // Đen - Quy trình qua Ban Kỹ thuật
-        'URGENT': 'danger'       // Đỏ - Quy trình khẩn cấp
+        'URGENT': 'danger',      // Đỏ - Quy trình khẩn cấp (bỏ qua KSNB)
+        'SPECIAL_4': 'danger'    // Đỏ - Quy trình bỏ qua Trưởng phòng, qua 2 BOD
     };
     return severityMap[workflowType] || 'secondary';
 };

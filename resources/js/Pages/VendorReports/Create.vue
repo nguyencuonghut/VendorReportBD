@@ -241,7 +241,8 @@ const workflowDescriptions = {
     'SPECIAL_1': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ 1 → BGĐ 2',
     'SPECIAL_2': 'Trưởng phòng → Khối Mua Hàng → Kiểm soát nội bộ → BGĐ',
     'SPECIAL_3': 'Trưởng phòng → Ban Kỹ thuật → Kiểm soát nội bộ → BGĐ',
-    'URGENT': 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)'
+    'URGENT': 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)',
+    'SPECIAL_4': 'Kiểm soát nội bộ → BGĐ 1 → BGĐ 2 (bỏ qua Trưởng phòng)'
 };
 
 // Image paste/drop handling

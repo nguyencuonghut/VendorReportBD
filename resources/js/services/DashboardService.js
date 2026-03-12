@@ -114,6 +114,7 @@ export class DashboardService {
     static getWorkflowSeverity(type) {
         const severityMap = {
             'URGENT': 'danger',
+            'SPECIAL_4': 'danger',
             'SPECIAL_1': 'warn',
             'SPECIAL_2': 'warn',
             'SPECIAL_3': 'warn',

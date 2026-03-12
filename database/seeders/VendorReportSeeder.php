@@ -61,11 +61,12 @@ class VendorReportSeeder extends Seeder
 
         // Workflow types with their distribution percentages
         $workflowTypes = [
-            'NORMAL' => 50,      // 50%
+            'NORMAL' => 45,      // 45%
             'SPECIAL_1' => 15,   // 15% - Qua 2 BOD
             'SPECIAL_2' => 15,   // 15% - Qua Khối Mua Hàng
             'SPECIAL_3' => 10,   // 10% - Qua Ban Kỹ thuật
-            'URGENT' => 10,      // 10% - Khẩn cấp
+            'URGENT' => 10,      // 10% - Khẩn cấp (bỏ qua KSNB)
+            'SPECIAL_4' => 5,    // 5% - Đặc biệt 4 (bỏ qua Trưởng phòng)
         ];
 
         // Status distribution
@@ -347,9 +348,17 @@ class VendorReportSeeder extends Seeder
                 ];
                 break;
 
-            case 'URGENT': // Khẩn cấp - chỉ BOD
+            case 'URGENT': // Khẩn cấp - bỏ qua KSNB, chỉ qua BOD
                 $steps = [
                     ['key' => 'BOD', 'role' => 'bod', 'users' => $bods],
+                ];
+                break;
+
+            case 'SPECIAL_4': // Đặc biệt 4 - bỏ qua Trưởng phòng
+                $steps = [
+                    ['key' => 'INTERNAL_CONTROL', 'role' => 'internal_control', 'users' => $internalControllers],
+                    ['key' => 'BOD_1', 'role' => 'bod', 'users' => $bods],
+                    ['key' => 'BOD_2', 'role' => 'bod', 'users' => $bods],
                 ];
                 break;
         }
