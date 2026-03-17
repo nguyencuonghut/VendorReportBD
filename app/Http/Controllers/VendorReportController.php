@@ -154,8 +154,24 @@ class VendorReportController extends Controller
                     return;
                 }
 
+                // Ban Giám Đốc (BOD): xem TẤT CẢ phiếu có liên quan đến BOD (bất kể assign cho ai)
+                if ($user->hasRole('bod')) {
+                    $q->where(function($query) {
+                        // Phiếu hiện đang ở bước BOD (bất kể được assign cho BOD nào)
+                        $query->whereHas('currentStep', function($q) {
+                            $q->where('assignee_role', 'bod');
+                        })
+                        // Hoặc phiếu đã qua bất kỳ bước BOD nào
+                        ->orWhereHas('approvalSteps', function($q) {
+                            $q->where('assignee_role', 'bod')
+                              ->whereIn('status', ['APPROVED', 'REJECTED']);
+                        });
+                    });
+                    return;
+                }
+
                 // Các role duyệt khác: xem phiếu cần duyệt hoặc CHỈ phiếu mình đã duyệt
-                $approverRoles = ['national_purchasing', 'tech_board', 'bod'];
+                $approverRoles = ['national_purchasing', 'tech_board'];
                 if ($user->hasAnyRole($approverRoles)) {
                     $q->where(function($query) use ($user) {
                         // Phiếu cần mình duyệt
