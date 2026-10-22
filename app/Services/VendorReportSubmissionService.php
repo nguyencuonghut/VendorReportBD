@@ -17,74 +17,51 @@ class VendorReportSubmissionService
     /**
      * Submit phiếu: Generate code + Build workflow steps
      *
-     * @param VendorReport $report
-     * @return VendorReport
      * @throws \Exception
      */
     public function submit(VendorReport $report): VendorReport
     {
-        if ($report->status !== 'DRAFT') {
-            throw new \Exception('Chỉ có thể gửi phiếu ở trạng thái Nháp');
-        }
+        return DB::transaction(function () use ($report) {
+            // Read the current state only after acquiring the report lock.
+            $report = VendorReport::query()->lockForUpdate()->findOrFail($report->id);
 
-        // Validate: Người tạo phải có department
-        $creator = $report->creator()->with('department')->first();
+            if ($report->status !== 'DRAFT') {
+                throw new \Exception('Chỉ có thể gửi phiếu ở trạng thái Nháp');
+            }
 
-        if (!$creator || !$creator->department_id) {
-            throw new \Exception('Người tạo phiếu phải thuộc một phòng ban');
-        }
+            // Builder owns workflow/department validation; every write rolls back together.
+            $this->workflowBuilder->buildSteps($report);
+            $creator = $report->creator;
 
-        $department = $creator->department;
-
-        if (!$department->is_active) {
-            throw new \Exception("Phòng {$department->name} đang không hoạt động");
-        }
-
-        // Chỉ validate head_user_id nếu workflow có bước DEPT_HEAD
-        $workflowConfig = config("vendor_report_workflows.{$report->workflow_type}");
-        $hasDeptHeadStep = collect($workflowConfig)->contains('step_key', 'DEPT_HEAD');
-
-        if ($hasDeptHeadStep && !$department->head_user_id) {
-            throw new \Exception("Phòng {$department->name} chưa có Trưởng phòng");
-        }
-
-        return DB::transaction(function () use ($report, $creator) {
-            // 1. Generate code nếu chưa có
-            if (!$report->code) {
+            // Generate code nếu chưa có
+            if (! $report->code) {
                 $code = $this->codeGenerator->generate($creator->department_id);
                 $report->code = $code;
             }
 
-            // 2. Update status
+            // Update status
             $report->status = 'IN_APPROVAL';
             $report->submitted_at = now();
             $report->save();
 
-            // 3. Build workflow steps
-            $this->workflowBuilder->buildSteps($report);
+            // Workflow mới luôn yêu cầu hai hành động duyệt thủ công.
+            if ($report->workflow_type !== 'INTERNAL_CONTROL_BOD') {
+                $this->autoApproveCreatorSteps($report, $creator);
+            }
 
-            // 4. Auto-approve các steps mà creator có quyền duyệt
-            $this->autoApproveCreatorSteps($report, $creator);
-
-            // 5. Reload để lấy current_step_id đã được update
+            // Reload để lấy current_step_id đã được update
             $report->refresh();
 
-            // 6. Log activity
+            // Log activity
             $this->activityService->logSubmitted($report);
 
-            // 7. Send notification to first step assignee(s)
-            if ($report->currentStep) {
-                if ($report->currentStep->assigneeUser) {
-                    // Đã có assignee cụ thể → gửi cho người đó
-                    $report->currentStep->assigneeUser->notify(new VendorReportSubmitted($report));
-                } elseif ($report->currentStep->assignee_role) {
-                    // Chưa có assignee cụ thể, chỉ có role → gửi cho TẤT CẢ users có role đó
-                    $usersWithRole = \App\Models\User::role($report->currentStep->assignee_role)->get();
-                    foreach ($usersWithRole as $user) {
-                        $user->notify(new VendorReportSubmitted($report));
-                    }
+            // Dispatch only after the outermost transaction commits successfully.
+            $recipients = $report->currentStep?->pendingApprovers()->get();
+            DB::afterCommit(function () use ($report, $recipients) {
+                foreach ($recipients ?? [] as $user) {
+                    $user->notify(new VendorReportSubmitted($report));
                 }
-            }
+            });
 
             return $report;
         });
@@ -97,23 +74,8 @@ class VendorReportSubmissionService
     private function autoApproveCreatorSteps($report, $creator): void
     {
         $steps = $report->approvalSteps()->orderBy('step_order')->get();
-        $creatorRoles = $creator->roles->pluck('name')->toArray();
-
         foreach ($steps as $step) {
-            // Check xem creator có quyền duyệt step này không
-            $canApprove = false;
-
-            // Trường hợp 1: Assignee cụ thể là creator
-            if ($step->assignee_user_id === $creator->id) {
-                $canApprove = true;
-            }
-
-            // Trường hợp 2: Assignee role khớp với role của creator
-            if (!$step->assignee_user_id && $step->assignee_role && in_array($step->assignee_role, $creatorRoles)) {
-                $canApprove = true;
-            }
-
-            if ($canApprove) {
+            if ($step->canActOn($creator)) {
                 // Tự động approve step này
                 $step->update([
                     'status' => 'APPROVED',

@@ -3,12 +3,14 @@
 /**
  * Workflow Definitions cho Vendor Report System
  *
- * 5 loại workflows:
+ * 7 loại workflows:
  * 1. NORMAL - Phiếu thông thường
  * 2. SPECIAL_1 - Quy trình qua 2 BOD
  * 3. SPECIAL_2 - Quy trình qua Khối Mua Hàng
  * 4. SPECIAL_3 - Quy trình qua Ban Kỹ thuật
  * 5. URGENT - Phiếu gấp (bỏ qua Kiểm soát nội bộ)
+ * 6. SPECIAL_4 - Bỏ qua Trưởng phòng, qua 2 BOD
+ * 7. INTERNAL_CONTROL_BOD - Kiểm soát nội bộ → Giám đốc, bỏ qua Trưởng phòng
  */
 
 return [
@@ -142,6 +144,22 @@ return [
         ],
         [
             'step_key' => 'BOD_2',
+            'requires_selection' => false,
+        ],
+    ],
+
+    /**
+     * INTERNAL_CONTROL_BOD - Bỏ qua Trưởng phòng, một lượt Giám đốc duyệt
+     * Luồng: Người tạo → Kiểm soát nội bộ (chọn Giám đốc) → Giám đốc
+     */
+    'INTERNAL_CONTROL_BOD' => [
+        [
+            'step_key' => 'INTERNAL_CONTROL',
+            'requires_selection' => true,
+            'selection_role' => 'bod',
+        ],
+        [
+            'step_key' => 'BOD',
             'requires_selection' => false,
         ],
     ],

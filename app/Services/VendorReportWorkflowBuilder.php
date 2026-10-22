@@ -2,19 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Models\VendorReport;
 use App\Models\VendorReportApprovalStep;
-use App\Models\Department;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class VendorReportWorkflowBuilder
 {
     /**
      * Build runtime approval steps khi submit phiếu
-     *
-     * @param VendorReport $report
-     * @return void
      */
     public function buildSteps(VendorReport $report): void
     {
@@ -28,15 +24,29 @@ class VendorReportWorkflowBuilder
         // Lấy creator để biết department
         $creator = $report->creator()->with('department')->first();
 
-        if (!$creator || !$creator->department) {
+        if (! $creator || ! $creator->department) {
             throw new \Exception('Người tạo phiếu phải thuộc một phòng ban');
         }
 
         $department = $creator->department;
 
-        // Kiểm tra trưởng phòng
-        if (!$department->head_user_id) {
+        if (! $department->is_active) {
+            throw new \Exception("Phòng {$department->name} đang không hoạt động");
+        }
+
+        // Only workflows containing DEPT_HEAD require a department head.
+        if (collect($config)->contains('step_key', 'DEPT_HEAD') && ! $department->head_user_id) {
             throw new \Exception("Phòng {$department->name} chưa có Trưởng phòng");
+        }
+
+        if ($workflowType === 'INTERNAL_CONTROL_BOD') {
+            foreach ($config as $stepConfig) {
+                $role = $this->mapStepKeyToRole($stepConfig['step_key']);
+                if (! User::activeWithRole($role)->exists()) {
+                    $label = $role === 'internal_control' ? 'Kiểm soát nội bộ' : 'Giám đốc';
+                    throw new \Exception("Chưa có người {$label} đang hoạt động để duyệt phiếu");
+                }
+            }
         }
 
         DB::transaction(function () use ($report, $config, $department) {
@@ -80,13 +90,10 @@ class VendorReportWorkflowBuilder
 
     /**
      * Map step_key sang role name
-     *
-     * @param string $stepKey
-     * @return string|null
      */
     private function mapStepKeyToRole(string $stepKey): ?string
     {
-        return match($stepKey) {
+        return match ($stepKey) {
             'INTERNAL_CONTROL' => 'internal_control',
             'NATIONAL_PURCHASING' => 'national_purchasing',
             'TECH_BOARD' => 'tech_board',

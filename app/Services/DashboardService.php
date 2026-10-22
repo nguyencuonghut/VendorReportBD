@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Department;
 use App\Models\User;
 use App\Models\VendorReport;
 use App\Models\VendorReportApprovalStep;
-use App\Models\Department;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
 
@@ -16,30 +16,21 @@ class DashboardService
      */
     public function getMetrics(User $user): array
     {
-        if ($user->hasRole('admin_system')) {
-            return $this->getAdminMetrics($user);
+        $specialistMetrics = match (true) {
+            $user->hasRole('admin_system') => $this->getAdminMetrics($user),
+            $user->hasRole('purchasing_admin') => $this->getPurchasingAdminMetrics($user),
+            $user->hasRole('accountant') => $this->getAccountantMetrics($user),
+            default => null,
+        };
+
+        $isApprover = VendorReportApprovalStep::assignedTo($user)->exists();
+        if ($specialistMetrics !== null) {
+            if ($isApprover) {
+                $specialistMetrics[] = $this->getPendingApprovalMetric($user);
+            }
+
+            return $specialistMetrics;
         }
-
-        if ($user->hasRole('purchasing_admin')) {
-            return $this->getPurchasingAdminMetrics($user);
-        }
-
-        if ($user->hasRole('accountant')) {
-            return $this->getAccountantMetrics($user);
-        }
-
-        // Get user's roles
-        $userRoles = $user->getRoleNames()->toArray();
-
-        // Check if user is approver
-        // User is approver if: assigned specifically OR has role that matches assignee_role
-        $isApprover = VendorReportApprovalStep::where(function($query) use ($user, $userRoles) {
-            $query->where('assignee_user_id', $user->id)
-                ->orWhere(function($q) use ($userRoles) {
-                    $q->whereNull('assignee_user_id')
-                      ->whereIn('assignee_role', $userRoles);
-                });
-        })->exists();
 
         // Check if user is dept head
         $isDeptHead = $this->isDeptHead($user);
@@ -73,7 +64,7 @@ class DashboardService
                 'id' => 'active_users',
                 'title' => 'Người dùng',
                 'value' => User::where('is_active', true)->count(),
-                'subtitle' => '/ ' . User::count() . ' tổng số',
+                'subtitle' => '/ '.User::count().' tổng số',
                 'icon' => 'pi pi-users',
                 'severity' => 'success',
                 'onClick' => '/users',
@@ -224,33 +215,6 @@ class DashboardService
 
     private function getApproverMetrics(User $user): array
     {
-        $userRoles = $user->getRoleNames()->toArray();
-
-        // Lấy các pending steps và lọc chỉ lấy steps hiện tại đang chờ
-        $pendingSteps = VendorReportApprovalStep::with('report.approvalSteps:id,report_id,step_order,status')
-            ->where('status', 'PENDING')
-            ->where(function($query) use ($user, $userRoles) {
-                $query->where('assignee_user_id', $user->id)
-                    ->orWhere(function($q) use ($userRoles) {
-                        $q->whereNull('assignee_user_id')
-                          ->whereIn('assignee_role', $userRoles);
-                    });
-            })
-            ->get()
-            // Chỉ lấy steps mà TẤT CẢ các steps trước đó đã approved
-            ->filter(function($step) {
-                $allSteps = $step->report->approvalSteps->sortBy('step_order');
-                $previousSteps = $allSteps->where('step_order', '<', $step->step_order);
-
-                if ($previousSteps->isEmpty()) {
-                    return true;
-                }
-
-                return $previousSteps->every(fn($prevStep) => $prevStep->status === 'APPROVED');
-            });
-
-        $pendingCount = $pendingSteps->count();
-
         $approvedToday = VendorReportApprovalStep::where('acted_by', $user->id)
             ->where('status', 'APPROVED')
             ->whereDate('acted_at', today())
@@ -263,13 +227,7 @@ class DashboardService
         $avgResponseTime = $this->calculateAvgResponseTime($user);
 
         return [
-            [
-                'id' => 'pending_approval',
-                'title' => 'Chờ tôi duyệt',
-                'value' => $pendingCount,
-                'icon' => 'pi pi-bell',
-                'severity' => $pendingCount > 0 ? 'danger' : 'success',
-            ],
+            $this->getPendingApprovalMetric($user),
             [
                 'id' => 'approved_today',
                 'title' => 'Duyệt hôm nay',
@@ -287,10 +245,23 @@ class DashboardService
             [
                 'id' => 'avg_response',
                 'title' => 'Thời gian phản hồi TB',
-                'value' => number_format($avgResponseTime, 1) . ' ngày',
+                'value' => number_format($avgResponseTime, 1).' ngày',
                 'icon' => 'pi pi-stopwatch',
                 'severity' => $avgResponseTime < 2 ? 'success' : 'warn',
             ],
+        ];
+    }
+
+    private function getPendingApprovalMetric(User $user): array
+    {
+        $count = VendorReportApprovalStep::pendingFor($user)->count();
+
+        return [
+            'id' => 'pending_approval',
+            'title' => 'Chờ tôi duyệt',
+            'value' => $count,
+            'icon' => 'pi pi-bell',
+            'severity' => $count > 0 ? 'danger' : 'success',
         ];
     }
 
@@ -302,7 +273,7 @@ class DashboardService
             [
                 'id' => 'dept_reports_total',
                 'title' => 'Phiếu của phòng',
-                'value' => VendorReport::whereHas('creator', function($q) use ($deptId) {
+                'value' => VendorReport::whereHas('creator', function ($q) use ($deptId) {
                     $q->where('department_id', $deptId);
                 })->count(),
                 'icon' => 'pi pi-building',
@@ -316,63 +287,25 @@ class DashboardService
      */
     public function getPendingActions(User $user): array
     {
-        if ($user->hasRole('admin_system')) {
-            return $this->getStuckReports();
-        }
+        $approvalActions = $this->getPendingApprovalActions($user);
+        $specialistActions = match (true) {
+            $user->hasRole('admin_system') => $this->getStuckReports(),
+            $user->hasRole('purchasing_admin') => $this->getApprovedReportsForPurchasingAdmin($user),
+            $user->hasRole('accountant') => $this->getApprovedReportsForAccountant(),
+            default => [],
+        };
 
-        // Special case: purchasing_admin xem tất cả phiếu APPROVED (để theo dõi, chạy giấy tờ)
-        if ($user->hasRole('purchasing_admin')) {
-            return $this->getApprovedReportsForPurchasingAdmin();
-        }
+        return collect($approvalActions)->concat($specialistActions)->unique('id')->values()->all();
+    }
 
-        // Special case: accountant xem tất cả phiếu APPROVED (để làm kế toán)
-        if ($user->hasRole('accountant')) {
-            return $this->getApprovedReportsForAccountant();
-        }
-
-        // Get user's roles
-        $userRoles = $user->getRoleNames()->toArray();
-
-        // For approvers: get pending approval steps
-        // Lấy các step mà:
-        // 1. Đã được assign cụ thể cho user (assignee_user_id = user.id)
-        // 2. HOẶC chưa assign cụ thể nhưng role của step khớp với role của user
-        // 3. TẤT CẢ các steps trước đó đã APPROVED (đây là step hiện tại đang chờ)
+    private function getPendingApprovalActions(User $user): array
+    {
         $steps = VendorReportApprovalStep::with([
-            'report' => function($q) {
-                $q->select('id', 'code', 'title', 'workflow_type', 'submitted_at', 'created_by');
-            },
+            'report:id,code,title,workflow_type,submitted_at,created_by',
             'report.creator:id,name,department_id',
             'report.creator.department:id,name',
-            'report.approvalSteps:id,report_id,step_order,status',
-            'assigneeUser:id,name'
-        ])
-            ->where('status', 'PENDING')
-            ->where(function($query) use ($user, $userRoles) {
-                // Case 1: Đã assign cụ thể cho user này
-                $query->where('assignee_user_id', $user->id)
-                    // Case 2: Chưa assign cụ thể nhưng role khớp
-                    ->orWhere(function($q) use ($userRoles) {
-                        $q->whereNull('assignee_user_id')
-                          ->whereIn('assignee_role', $userRoles);
-                    });
-            })
-            ->get()
-            // Chỉ lấy steps mà TẤT CẢ các steps trước đó đã approved
-            ->filter(function($step) {
-                $allSteps = $step->report->approvalSteps->sortBy('step_order');
-
-                // Tìm tất cả steps trước step hiện tại
-                $previousSteps = $allSteps->where('step_order', '<', $step->step_order);
-
-                // Nếu không có step nào trước đó, step này là step đầu tiên
-                if ($previousSteps->isEmpty()) {
-                    return true;
-                }
-
-                // Kiểm tra xem TẤT CẢ các steps trước đó đã APPROVED chưa
-                return $previousSteps->every(fn($prevStep) => $prevStep->status === 'APPROVED');
-            });
+            'assigneeUser:id,name',
+        ])->pendingFor($user)->get();
 
         return $steps->map(function ($step) {
             $report = $step->report;
@@ -387,12 +320,19 @@ class DashboardService
 
             // Format pending time string
             $pendingTimeFormatted = '';
-            if ($days > 0) $pendingTimeFormatted .= "{$days} ngày ";
-            if ($hours > 0) $pendingTimeFormatted .= "{$hours} giờ ";
-            if ($minutes > 0 || $pendingTimeFormatted === '') $pendingTimeFormatted .= "{$minutes} phút";
+            if ($days > 0) {
+                $pendingTimeFormatted .= "{$days} ngày ";
+            }
+            if ($hours > 0) {
+                $pendingTimeFormatted .= "{$hours} giờ ";
+            }
+            if ($minutes > 0 || $pendingTimeFormatted === '') {
+                $pendingTimeFormatted .= "{$minutes} phút";
+            }
 
             return [
                 'id' => $report->id,
+                'action_type' => 'approval',
                 'code' => $report->code,
                 'title' => $report->title,
                 'workflow_type' => $report->workflow_type,
@@ -408,9 +348,9 @@ class DashboardService
                 'requires_selection' => $step->requires_selection,
             ];
         })
-        ->sortByDesc('submitted_at_timestamp') // Sort by submitted time, newest first
-        ->values()
-        ->all();
+            ->sortByDesc('submitted_at_timestamp') // Sort by submitted time, newest first
+            ->values()
+            ->all();
     }
 
     private function getStuckReports(): array
@@ -432,12 +372,19 @@ class DashboardService
 
                 // Format pending time string
                 $pendingTimeFormatted = '';
-                if ($days > 0) $pendingTimeFormatted .= "{$days} ngày ";
-                if ($hours > 0) $pendingTimeFormatted .= "{$hours} giờ ";
-                if ($minutes > 0 || $pendingTimeFormatted === '') $pendingTimeFormatted .= "{$minutes} phút";
+                if ($days > 0) {
+                    $pendingTimeFormatted .= "{$days} ngày ";
+                }
+                if ($hours > 0) {
+                    $pendingTimeFormatted .= "{$hours} giờ ";
+                }
+                if ($minutes > 0 || $pendingTimeFormatted === '') {
+                    $pendingTimeFormatted .= "{$minutes} phút";
+                }
 
                 return [
                     'id' => $report->id,
+                    'action_type' => 'monitoring',
                     'code' => $report->code,
                     'title' => $report->title,
                     'workflow_type' => $report->workflow_type,
@@ -453,9 +400,9 @@ class DashboardService
             ->all();
     }
 
-    private function getApprovedReportsForPurchasingAdmin(): array
+    private function getApprovedReportsForPurchasingAdmin(User $user): array
     {
-        return VendorReport::with(['creator.department'])
+        return VendorReport::visibleTo($user)->with(['creator.department'])
             ->where('status', 'APPROVED')
             ->orderByDesc('approved_at') // Mới duyệt trước
             ->limit(50) // Giới hạn 50 phiếu gần nhất
@@ -472,12 +419,19 @@ class DashboardService
 
                 // Format time string
                 $timeFormatted = '';
-                if ($days > 0) $timeFormatted .= "{$days} ngày ";
-                if ($hours > 0) $timeFormatted .= "{$hours} giờ ";
-                if ($minutes > 0 || $timeFormatted === '') $timeFormatted .= "{$minutes} phút";
+                if ($days > 0) {
+                    $timeFormatted .= "{$days} ngày ";
+                }
+                if ($hours > 0) {
+                    $timeFormatted .= "{$hours} giờ ";
+                }
+                if ($minutes > 0 || $timeFormatted === '') {
+                    $timeFormatted .= "{$minutes} phút";
+                }
 
                 return [
                     'id' => $report->id,
+                    'action_type' => 'approved',
                     'code' => $report->code,
                     'title' => $report->title,
                     'workflow_type' => $report->workflow_type,
@@ -515,12 +469,19 @@ class DashboardService
 
                 // Format time string
                 $timeFormatted = '';
-                if ($days > 0) $timeFormatted .= "{$days} ngày ";
-                if ($hours > 0) $timeFormatted .= "{$hours} giờ ";
-                if ($minutes > 0 || $timeFormatted === '') $timeFormatted .= "{$minutes} phút";
+                if ($days > 0) {
+                    $timeFormatted .= "{$days} ngày ";
+                }
+                if ($hours > 0) {
+                    $timeFormatted .= "{$hours} giờ ";
+                }
+                if ($minutes > 0 || $timeFormatted === '') {
+                    $timeFormatted .= "{$minutes} phút";
+                }
 
                 return [
                     'id' => $report->id,
+                    'action_type' => 'approved',
                     'code' => $report->code,
                     'title' => $report->title,
                     'workflow_type' => $report->workflow_type,
@@ -587,7 +548,7 @@ class DashboardService
             'id' => 'my_reports',
             'label' => 'Phiếu của tôi',
             'icon' => 'pi pi-file',
-            'route' => '/vendor-reports?created_by=' . $user->id,
+            'route' => '/vendor-reports?created_by='.$user->id,
             'severity' => 'secondary',
         ];
 
@@ -597,7 +558,7 @@ class DashboardService
                 'id' => 'dept_reports',
                 'label' => 'Phiếu của phòng',
                 'icon' => 'pi pi-building',
-                'route' => '/vendor-reports?department=' . $user->department_id,
+                'route' => '/vendor-reports?department='.$user->department_id,
                 'severity' => 'secondary',
             ];
         }
@@ -610,7 +571,7 @@ class DashboardService
      */
     public function getChartData(User $user, string $type, string $period = 'month'): array
     {
-        return match($type) {
+        return match ($type) {
             'status' => $this->getStatusChartData($user),
             'workflow' => $this->getWorkflowChartData($user),
             'trend' => $this->getTrendChartData($user, $period),
@@ -625,7 +586,7 @@ class DashboardService
             ->groupBy('status');
 
         // Filter by user permissions
-        if (!$user->canViewAllReports()) {
+        if (! $user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -674,7 +635,7 @@ class DashboardService
             ->groupBy('workflow_type');
 
         // Filter by user permissions
-        if (!$user->canViewAllReports()) {
+        if (! $user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -694,20 +655,23 @@ class DashboardService
     {
         $months = 6;
         $startDate = now()->subMonths($months - 1)->startOfMonth();
+        $sqlite = DB::connection()->getDriverName() === 'sqlite';
+        $year = $sqlite ? "CAST(strftime('%Y', created_at) AS INTEGER)" : 'YEAR(created_at)';
+        $month = $sqlite ? "CAST(strftime('%m', created_at) AS INTEGER)" : 'MONTH(created_at)';
 
         // Build query with groupBy to reduce queries from 12 to 1
         $query = VendorReport::select(
-                DB::raw('YEAR(created_at) as year'),
-                DB::raw('MONTH(created_at) as month'),
-                'status',
-                DB::raw('count(*) as count')
-            )
+            DB::raw("{$year} as year"),
+            DB::raw("{$month} as month"),
+            'status',
+            DB::raw('count(*) as count')
+        )
             ->where('created_at', '>=', $startDate)
             ->whereIn('status', ['APPROVED', 'REJECTED'])
             ->groupBy('year', 'month', 'status');
 
         // Filter by user permissions
-        if (!$user->canViewAllReports()) {
+        if (! $user->canViewAllReports()) {
             $query->where('created_by', $user->id);
         }
 
@@ -722,13 +686,13 @@ class DashboardService
             $date = now()->subMonths($i);
             $labels[] = $date->format('M');
 
-            $approved = $rawData->first(function($item) use ($date) {
+            $approved = $rawData->first(function ($item) use ($date) {
                 return $item->year == $date->year
                     && $item->month == $date->month
                     && $item->status === 'APPROVED';
             });
 
-            $rejected = $rawData->first(function($item) use ($date) {
+            $rejected = $rawData->first(function ($item) use ($date) {
                 return $item->year == $date->year
                     && $item->month == $date->month
                     && $item->status === 'REJECTED';
@@ -785,46 +749,27 @@ class DashboardService
     public function getActivities(User $user, int $limit = 15, ?string $eventFilter = null): array
     {
         $query = Activity::with('causer:id,name', 'subject:id,code')
-            ->where('log_name', 'vendor_report')
+            ->where('subject_type', (new VendorReport)->getMorphClass())
             ->orderByDesc('created_at')
             ->limit($limit);
 
-        // Filter by user access using subqueries
-        if (!$user->canViewAllReports()) {
-            $query->where(function($q) use ($user) {
-                // Reports created by user
-                $userRoles = $user->getRoleNames()->toArray();
-                $q->whereIn('subject_id', function($subQuery) use ($user) {
-                    $subQuery->select('id')
-                        ->from('vendor_reports')
-                        ->where('created_by', $user->id);
-                })
-                // OR reports user is assigned to approve (either specifically or by role)
-                ->orWhereIn('subject_id', function($subQuery) use ($user, $userRoles) {
-                    $subQuery->select('report_id')
-                        ->from('vendor_report_approval_steps')
-                        ->where(function($q) use ($user, $userRoles) {
-                            $q->where('assignee_user_id', $user->id)
-                              ->orWhere(function($sq) use ($userRoles) {
-                                  $sq->whereNull('assignee_user_id')
-                                     ->whereIn('assignee_role', $userRoles);
-                              });
-                        });
-                });
-            });
-        }
+        $query->whereIn('subject_id', VendorReport::visibleTo($user)->select('vendor_reports.id'));
 
         if ($eventFilter) {
             $allowedEvents = ['created', 'submitted', 'approved', 'rejected', 'cancelled'];
             if (in_array($eventFilter, $allowedEvents)) {
-                $query->where('event', $eventFilter);
+                $query->where(function ($events) use ($eventFilter) {
+                    $events->where('event', $eventFilter)
+                        ->orWhere(fn ($legacy) => $legacy->whereNull('event')
+                            ->where('description', $eventFilter));
+                });
             }
         }
 
         return $query->get()->map(function ($activity) {
             return [
                 'id' => $activity->id,
-                'event' => $activity->event,
+                'event' => $activity->event ?? $activity->description,
                 'description' => $activity->description,
                 'causer_name' => $activity->causer?->name ?? 'System',
                 'report_code' => $activity->subject?->code ?? 'N/A',
@@ -847,9 +792,13 @@ class DashboardService
 
     private function calculateAvgResponseTime(User $user): float
     {
+        $hours = DB::connection()->getDriverName() === 'sqlite'
+            ? 'CAST((julianday(acted_at) - julianday(created_at)) * 24 AS INTEGER)'
+            : 'TIMESTAMPDIFF(HOUR, created_at, acted_at)';
+
         $avgHours = VendorReportApprovalStep::where('acted_by', $user->id)
             ->whereNotNull('acted_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, created_at, acted_at)) as avg_hours')
+            ->selectRaw("AVG({$hours}) as avg_hours")
             ->value('avg_hours');
 
         return $avgHours ? ($avgHours / 24) : 0;

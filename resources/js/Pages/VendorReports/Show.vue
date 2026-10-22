@@ -451,8 +451,13 @@
                         placeholder="Chọn người phê duyệt"
                         fluid
                         filter
+                        :disabled="!props.selectableApprovers.length"
                     />
+                    <p v-if="!props.selectableApprovers.length" role="alert" class="text-red-500 text-sm mt-2">
+                        {{ currentStepData?.selection_role === 'bod' ? 'Chưa có Giám đốc đang hoạt động để chọn' : 'Chưa có người phê duyệt đang hoạt động để chọn' }}
+                    </p>
                 </div>
+                <p v-if="approvalError" role="alert" class="text-red-500 text-sm">{{ approvalError }}</p>
 
                 <div>
                     <label for="approval_note" class="block font-bold mb-3">Ghi chú</label>
@@ -467,7 +472,7 @@
             </div>
             <template #footer>
                 <Button label="Hủy" icon="pi pi-times" text @click="approvalDialog = false" />
-                <Button label="Phê duyệt" icon="pi pi-check" severity="success" @click="approveReport" :loading="approving" />
+                <Button label="Phê duyệt" icon="pi pi-check" severity="success" @click="approveReport" :loading="approving" :disabled="approvalSelectionMissing" />
             </template>
         </Dialog>
 
@@ -610,6 +615,7 @@ const cloneDialog = ref(false);
 const cancelDialog = ref(false);
 const submitting = ref(false);
 const approving = ref(false);
+const approvalError = ref('');
 const rejecting = ref(false);
 const cloning = ref(false);
 const canceling = ref(false);
@@ -644,12 +650,11 @@ const reportImages = computed(() => {
     return props.files.filter(file => file.type === 'REPORT_IMAGE');
 });
 
-const requiresSelection = computed(() => {
-    // Handle Resource wrapper: currentStep might be {data: {...}} or direct object
-    const step = props.currentStep?.data || props.currentStep;
-
-    return step && step.requires_selection && props.selectableApprovers.length > 0;
-});
+const currentStepData = computed(() => props.currentStep?.data || props.currentStep);
+const requiresSelection = computed(() => !!currentStepData.value?.requires_selection);
+const approvalSelectionMissing = computed(() => requiresSelection.value && !props.selectableApprovers.some(
+    approver => approver.id === approvalForm.value.selected_next_approver_id
+));
 
 // Helper functions
 const formatDate = (dateString) => {
@@ -704,6 +709,7 @@ const submitReport = () => {
 };
 
 const showApprovalDialog = () => {
+    approvalError.value = '';
     approvalForm.value = {
         selected_next_approver_id: null,
         note: ''
@@ -712,7 +718,7 @@ const showApprovalDialog = () => {
 };
 
 const approveReport = () => {
-    if (requiresSelection.value && !approvalForm.value.selected_next_approver_id) {
+    if (approvalSelectionMissing.value) {
         return;
     }
 
@@ -720,11 +726,15 @@ const approveReport = () => {
         onStart: () => {
             approving.value = true;
         },
-        onSuccess: () => {
-            approving.value = false;
-            approvalDialog.value = false;
+        onSuccess: (page) => {
+            const flash = page.props.flash || {};
+            approvalError.value = flash.error || (flash.type === 'error' ? flash.message : '') || '';
+            approvalDialog.value = !!approvalError.value;
         },
-        onError: () => {
+        onError: (errors) => {
+            approvalError.value = Object.values(errors).flat().join(' ');
+        },
+        onFinish: () => {
             approving.value = false;
         }
     });

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateVendorReportRequest extends FormRequest
 {
@@ -33,7 +34,7 @@ class UpdateVendorReportRequest extends FormRequest
     {
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'workflow_type' => ['sometimes', 'required', 'in:NORMAL,SPECIAL_1,SPECIAL_2,SPECIAL_3,SPECIAL_4,URGENT'],
+            'workflow_type' => ['sometimes', 'required', 'string', Rule::in(array_keys(config('vendor_report_workflows', [])))],
             'purchasing_admin_id' => ['nullable', 'exists:users,id'],
             'report_image' => ['nullable', 'image', 'max:10240'], // 10MB max, optional on update
             'quotation_files' => ['nullable', 'array'],

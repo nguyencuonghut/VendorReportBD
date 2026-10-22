@@ -43,7 +43,7 @@
                 <div v-if="form.workflow_type" class="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
                     <p class="text-sm text-blue-800">
                         <i class="pi pi-info-circle mr-2"></i>
-                        {{ getWorkflowDescription(form.workflow_type) }}
+                        {{ VendorReportService.getWorkflowDescription(form.workflow_type) }}
                     </p>
                 </div>
             </div>
@@ -192,6 +192,7 @@
 import { ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { useFormValidation } from '@/composables/useFormValidation';
+import { VendorReportService } from '@/services';
 import { useToast } from 'primevue/usetoast';
 
 import InputText from 'primevue/inputtext';
@@ -234,16 +235,6 @@ const workflowTypeOptions = Object.entries(props.workflows).map(([value, label])
     label,
     value
 }));
-
-// Workflow descriptions for display
-const workflowDescriptions = {
-    'NORMAL': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ',
-    'SPECIAL_1': 'Trưởng phòng → Kiểm soát nội bộ → BGĐ 1 → BGĐ 2',
-    'SPECIAL_2': 'Trưởng phòng → Khối Mua Hàng → Kiểm soát nội bộ → BGĐ',
-    'SPECIAL_3': 'Trưởng phòng → Ban Kỹ thuật → Kiểm soát nội bộ → BGĐ',
-    'URGENT': 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)',
-    'SPECIAL_4': 'Kiểm soát nội bộ → BGĐ 1 → BGĐ 2 (bỏ qua Trưởng phòng)'
-};
 
 // Image paste/drop handling
 const pasteAreaRef = ref(null);
@@ -454,9 +445,6 @@ function dataURLtoBlob(dataurl) {
     return new Blob([u8], { type: mime });
 }
 
-const getWorkflowDescription = (workflowType) => {
-    return workflowDescriptions[workflowType] || '';
-};
 
 const goBack = () => {
     router.get('/vendor-reports');

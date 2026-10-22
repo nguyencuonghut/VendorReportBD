@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\LogOptions;
@@ -35,7 +36,7 @@ class VendorReportApprovalStep extends Model
     // ⭐ Enum Label Methods
     public function getStepKeyLabel(): string
     {
-        return match($this->step_key) {
+        return match ($this->step_key) {
             'DEPT_HEAD' => 'Trưởng phòng',
             'INTERNAL_CONTROL' => 'Kiểm soát nội bộ',
             'NATIONAL_PURCHASING' => 'Khối mua hàng toàn quốc',
@@ -49,7 +50,7 @@ class VendorReportApprovalStep extends Model
 
     public function getStatusLabel(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'PENDING' => 'Chờ duyệt',
             'APPROVED' => 'Đã duyệt',
             'REJECTED' => 'Từ chối',
@@ -61,7 +62,7 @@ class VendorReportApprovalStep extends Model
 
     public function getStatusColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'PENDING' => 'warn',
             'APPROVED' => 'success',
             'REJECTED' => 'danger',
@@ -103,6 +104,28 @@ class VendorReportApprovalStep extends Model
         return $this->belongsTo(User::class, 'selected_next_approver_id');
     }
 
+    /** Match the saved assignment; a selected user keeps access after a role change. */
+    public function scopeAssignedTo(Builder $query, User $user): Builder
+    {
+        if (! $user->is_active || $user->trashed()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $assignment) use ($user) {
+            $assignment->where('assignee_user_id', $user->id)
+                ->orWhere(fn (Builder $role) => $role->whereNull('assignee_user_id')
+                    ->whereIn('assignee_role', $user->getRoleNames()));
+        });
+    }
+
+    /** Only the report's current, pending step is actionable. */
+    public function scopePendingFor(Builder $query, User $user): Builder
+    {
+        return $query->assignedTo($user)->where('status', 'PENDING')
+            ->whereHas('report', fn (Builder $report) => $report->inApproval()
+                ->whereColumn('vendor_reports.current_step_id', 'vendor_report_approval_steps.id'));
+    }
+
     // Helper methods
     public function isPending(): bool
     {
@@ -121,7 +144,7 @@ class VendorReportApprovalStep extends Model
 
     public function canActOn(User $user): bool
     {
-        if (!$this->isPending()) {
+        if (! $this->isPending() || ! $user->is_active || $user->trashed()) {
             return false;
         }
 
@@ -131,11 +154,28 @@ class VendorReportApprovalStep extends Model
         }
 
         // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-        if (!$this->assignee_user_id && $this->assignee_role) {
+        if (! $this->assignee_user_id && $this->assignee_role) {
             return $user->hasRole($this->assignee_role);
         }
 
         return false;
+    }
+
+    public function pendingApprovers(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = User::query()->where('is_active', true);
+
+        if (! $this->isPending()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($this->assignee_user_id) {
+            return $query->whereKey($this->assignee_user_id);
+        }
+
+        return $this->assignee_role
+            ? User::activeWithRole($this->assignee_role)
+            : $query->whereRaw('1 = 0');
     }
 
     // Activity Log

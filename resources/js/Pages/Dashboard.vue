@@ -138,10 +138,10 @@
                             <Column header="Hành động" style="min-width: 100px">
                                 <template #body="slotProps">
                                     <Button
-                                        icon="pi pi-eye"
-                                        severity="info"
+                                        :icon="slotProps.data.action_type === 'approval' ? 'pi pi-check' : 'pi pi-eye'"
+                                        :label="slotProps.data.action_type === 'approval' ? 'Duyệt phiếu' : 'Xem phiếu'"
+                                        :severity="slotProps.data.action_type === 'approval' ? 'success' : 'info'"
                                         text
-                                        rounded
                                         @click="router.visit(`/vendor-reports/${slotProps.data.id}`)"
                                     />
                                 </template>

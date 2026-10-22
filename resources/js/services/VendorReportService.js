@@ -2,6 +2,19 @@ import { router } from '@inertiajs/vue3';
 import { ToastService } from './ToastService';
 
 export class VendorReportService {
+    static getWorkflowDescription(workflowType) {
+        const descriptions = {
+            NORMAL: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ',
+            SPECIAL_1: 'Trưởng phòng → Kiểm soát nội bộ → BGĐ 1 → BGĐ 2',
+            SPECIAL_2: 'Trưởng phòng → Khối Mua Hàng → Kiểm soát nội bộ → BGĐ',
+            SPECIAL_3: 'Trưởng phòng → Ban Kỹ thuật → Kiểm soát nội bộ → BGĐ',
+            URGENT: 'Trưởng phòng → BGĐ (bỏ qua Kiểm soát nội bộ)',
+            SPECIAL_4: 'Kiểm soát nội bộ → BGĐ 1 → BGĐ 2 (bỏ qua Trưởng phòng)',
+            INTERNAL_CONTROL_BOD: 'KSNB → Giám đốc (bỏ qua Trưởng phòng)'
+        };
+        return descriptions[workflowType] || '';
+    }
+
     /**
      * Get all vendor reports for index page
      * @param {Object} filters - Filter parameters (status, workflow_type, department_id, search, etc.)

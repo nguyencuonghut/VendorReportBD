@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -21,6 +22,8 @@ class VendorReport extends Model
         'approved_at',
         'rejected_at',
         'rejected_note',
+        'canceled_at',
+        'canceled_reason',
         'parent_id',
         'root_id',
         'revision_number',
@@ -32,6 +35,7 @@ class VendorReport extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'canceled_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -46,12 +50,13 @@ class VendorReport extends Model
     // ⭐ Enum Label Methods - Để Resource sử dụng
     public function getWorkflowTypeLabel(): string
     {
-        return match($this->workflow_type) {
+        return match ($this->workflow_type) {
             'NORMAL' => 'Quy trình thông thường',
             'SPECIAL_1' => 'Quy trình qua 2 BOD',
             'SPECIAL_2' => 'Quy trình qua Khối Mua Hàng',
             'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
             'SPECIAL_4' => 'Quy trình bỏ qua Trưởng phòng, qua 2 BOD',
+            'INTERNAL_CONTROL_BOD' => 'KSNB → Giám đốc (bỏ qua Trưởng phòng)',
             'URGENT' => 'Quy trình khẩn cấp',
             default => $this->workflow_type,
         };
@@ -59,7 +64,7 @@ class VendorReport extends Model
 
     public function getStatusLabel(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'DRAFT' => 'Nháp',
             'SUBMITTED' => 'Đã gửi',
             'IN_APPROVAL' => 'Đang duyệt',
@@ -72,7 +77,7 @@ class VendorReport extends Model
 
     public function getStatusColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'DRAFT' => 'info',
             'SUBMITTED' => 'primary',
             'IN_APPROVAL' => 'warn',
@@ -92,6 +97,7 @@ class VendorReport extends Model
             'SPECIAL_3' => 'Quy trình qua Ban Kỹ thuật',
             'URGENT' => 'Quy trình khẩn cấp',
             'SPECIAL_4' => 'Quy trình bỏ qua Trưởng phòng, qua 2 BOD',
+            'INTERNAL_CONTROL_BOD' => 'KSNB → Giám đốc (bỏ qua Trưởng phòng)',
         ];
     }
 
@@ -186,6 +192,49 @@ class VendorReport extends Model
         return $query->where('status', 'REJECTED');
     }
 
+    public function scopeAwaitingApprovalBy(Builder $query, User $user): Builder
+    {
+        return $query->inApproval()->whereHas('currentStep',
+            fn (Builder $step) => $step->pendingFor($user));
+    }
+
+    /** Union of the view policy's grants, including saved assignments and history. */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if (! $user->is_active || $user->trashed()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('admin_system')) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $visible) use ($user) {
+            $visible->where(fn (Builder $pending) => $pending->awaitingApprovalBy($user))
+                ->orWhereHas('approvalSteps', fn (Builder $step) => $step
+                    ->where('acted_by', $user->id)->whereIn('status', ['APPROVED', 'REJECTED']));
+
+            if ($user->hasRole('requester')) {
+                $visible->orWhere('created_by', $user->id);
+            }
+            if ($user->hasRole('purchasing_admin')) {
+                $visible->orWhere(fn (Builder $assigned) => $assigned
+                    ->where('purchasing_admin_id', $user->id)->where('status', '!=', 'DRAFT'));
+            }
+            if ($user->hasRole('accountant')) {
+                $visible->orWhere('status', 'APPROVED');
+            }
+            if ($user->department_id && $user->department?->head_user_id === $user->id) {
+                $visible->orWhereHas('creator', fn (Builder $creator) => $creator
+                    ->where('department_id', $user->department_id));
+            }
+            if ($user->hasRole('internal_control')) {
+                $visible->orWhereHas('approvalSteps', fn (Builder $step) => $step
+                    ->where('assignee_role', 'internal_control')->whereIn('status', ['APPROVED', 'REJECTED']));
+            }
+        });
+    }
+
     // Helper methods
     public function isDraft(): bool
     {
@@ -215,7 +264,7 @@ class VendorReport extends Model
             ? $this->children->count() > 0
             : $this->children()->exists();
 
-        return $this->status === 'REJECTED' && !$hasChildren;
+        return $this->status === 'REJECTED' && ! $hasChildren;
     }
 
     public function getAllAncestors()

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\VendorReport;
 use App\Http\Requests\StoreVendorReportRequest;
 use App\Http\Requests\UpdateVendorReportRequest;
 use App\Http\Resources\VendorReportResource;
-use App\Services\VendorReportSubmissionService;
-use App\Services\VendorReportApprovalService;
+use App\Models\VendorReport;
 use App\Services\VendorReportActivityService;
+use App\Services\VendorReportApprovalService;
+use App\Services\VendorReportSubmissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -30,188 +30,26 @@ class VendorReportController extends Controller
 
         $user = auth()->user();
 
-        \Log::info('VendorReport Index - User Info', [
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_roles' => $user->roles->pluck('name')->toArray(),
-            'department_id' => $user->department_id,
-            'department' => $user->department ? [
-                'id' => $user->department->id,
-                'name' => $user->department->name,
-                'head_user_id' => $user->department->head_user_id,
-            ] : null,
-        ]);
-
         $reports = VendorReport::query()
             ->with([
                 'creator:id,name,department_id',
                 'creator.department:id,name',
                 'currentStep:id,report_id,step_key,status',
-                'approvalSteps:id,report_id,step_key,status,step_order' // Load để hiển thị rejected_step_label
+                'approvalSteps:id,report_id,step_key,status,step_order', // Load để hiển thị rejected_step_label
             ])
             ->withCount('children') // Chỉ đếm số lượng children thay vì load hết
-            // Áp dụng logic phân quyền theo role
-            ->when(true, function($q) use ($user) {
-                // Admin system: xem tất cả
-                if ($user->hasRole('admin_system')) {
-                    return;
-                }
-
-                // Trưởng phòng: xem phiếu của phòng mình hoặc phiếu cần duyệt hoặc đã duyệt
-                // CHECK TRƯỚC requester vì Trưởng phòng có thể có role requester nhưng quyền cao hơn
-                if ($user->department_id && $user->department->head_user_id === $user->id) {
-                    \Log::info('Department Head Query', [
-                        'user_id' => $user->id,
-                        'user_name' => $user->name,
-                        'department_id' => $user->department_id,
-                        'head_user_id' => $user->department->head_user_id,
-                    ]);
-
-                    $q->where(function($query) use ($user) {
-                        // Phiếu của nhân viên cùng phòng (trừ DRAFT của người khác)
-                        $query->where(function($q) use ($user) {
-                            $q->whereHas('creator', fn($q2) => $q2->where('department_id', $user->department_id))
-                              ->where(function($q2) use ($user) {
-                                  // Xem DRAFT của chính mình, hoặc phiếu khác DRAFT của người khác
-                                  $q2->where('created_by', $user->id)
-                                     ->orWhere('status', '!=', 'DRAFT');
-                              });
-                        })
-                        // Hoặc phiếu cần mình duyệt
-                        ->orWhereHas('currentStep', function($q) use ($user) {
-                            $q->where(function($q2) use ($user) {
-                                // Trường hợp 1: Đã được assign cụ thể cho user
-                                $q2->where('assignee_user_id', $user->id)
-                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                                   ->orWhere(function($q3) use ($user) {
-                                       $q3->whereNull('assignee_user_id');
-
-                                       // Check role của user và match với assignee_role
-                                       $userRoles = $user->roles->pluck('name')->toArray();
-                                       $q3->whereIn('assignee_role', $userRoles);
-                                   });
-                            });
-                        })
-                        // Hoặc phiếu mà mình đã duyệt/từ chối
-                        ->orWhereHas('approvalSteps', function($q) use ($user) {
-                            $q->where('acted_by', $user->id)
-                              ->whereIn('status', ['APPROVED', 'REJECTED']);
-                        });
-                    });
-                    return;
-                }
-
-                // Requester: chỉ xem phiếu của mình
-                if ($user->hasRole('requester')) {
-                    $q->where('created_by', $user->id);
-                    return;
-                }
-
-                // Purchasing Admin: xem phiếu được gán (khác DRAFT) HOẶC tất cả phiếu APPROVED
-                if ($user->hasRole('purchasing_admin')) {
-                    $q->where(function($query) use ($user) {
-                        // Phiếu được gán cho mình (khác DRAFT)
-                        $query->where(function($q) use ($user) {
-                            $q->where('purchasing_admin_id', $user->id)
-                              ->where('status', 'APPROVED');
-                        });
-                    });
-                    return;
-                }
-
-                // Accountant: xem TẤT CẢ phiếu APPROVED (để làm kế toán)
-                if ($user->hasRole('accountant')) {
-                    $q->where('status', 'APPROVED');
-                    return;
-                }
-
-                // Internal Control: xem phiếu cần duyệt hoặc phiếu đã qua bước internal_control (bất kể ai duyệt)
-                if ($user->hasRole('internal_control')) {
-                    $q->where(function($query) use ($user) {
-                        // Phiếu cần mình duyệt
-                        $query->whereHas('currentStep', function($q) use ($user) {
-                            $q->where(function($q2) use ($user) {
-                                // Trường hợp 1: Đã được assign cụ thể cho user
-                                $q2->where('assignee_user_id', $user->id)
-                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                                   ->orWhere(function($q3) use ($user) {
-                                       $q3->whereNull('assignee_user_id')
-                                          ->where('assignee_role', 'internal_control');
-                                   });
-                            });
-                        })
-                        // Hoặc phiếu mà mình đã duyệt/từ chối
-                        ->orWhereHas('approvalSteps', function($q) use ($user) {
-                            $q->where('acted_by', $user->id)
-                              ->whereIn('status', ['APPROVED', 'REJECTED']);
-                        })
-                        // Hoặc phiếu mà BẤT KỲ AI trong internal_control đã duyệt/từ chối
-                        ->orWhereHas('approvalSteps', function($q) {
-                            $q->where('assignee_role', 'internal_control')
-                              ->whereIn('status', ['APPROVED', 'REJECTED']);
-                        });
-                    });
-                    return;
-                }
-
-                // Ban Giám Đốc (BOD): xem TẤT CẢ phiếu có liên quan đến BOD (bất kể assign cho ai)
-                if ($user->hasRole('bod')) {
-                    $q->where(function($query) {
-                        // Phiếu hiện đang ở bước BOD (bất kể được assign cho BOD nào)
-                        $query->whereHas('currentStep', function($q) {
-                            $q->where('assignee_role', 'bod');
-                        })
-                        // Hoặc phiếu đã qua bất kỳ bước BOD nào
-                        ->orWhereHas('approvalSteps', function($q) {
-                            $q->where('assignee_role', 'bod')
-                              ->whereIn('status', ['APPROVED', 'REJECTED']);
-                        });
-                    });
-                    return;
-                }
-
-                // Các role duyệt khác: xem phiếu cần duyệt hoặc CHỈ phiếu mình đã duyệt
-                $approverRoles = ['national_purchasing', 'tech_board'];
-                if ($user->hasAnyRole($approverRoles)) {
-                    $q->where(function($query) use ($user) {
-                        // Phiếu cần mình duyệt
-                        $query->whereHas('currentStep', function($q) use ($user) {
-                            $q->where(function($q2) use ($user) {
-                                // Trường hợp 1: Đã được assign cụ thể cho user
-                                $q2->where('assignee_user_id', $user->id)
-                                   // Trường hợp 2: Chưa assign user cụ thể, nhưng role khớp
-                                   ->orWhere(function($q3) use ($user) {
-                                       $q3->whereNull('assignee_user_id');
-
-                                       // Check role của user và match với assignee_role
-                                       $userRoles = $user->roles->pluck('name')->toArray();
-                                       $q3->whereIn('assignee_role', $userRoles);
-                                   });
-                            });
-                        })
-                        // Hoặc phiếu mà CHỈ MÌNH đã duyệt/từ chối
-                        ->orWhereHas('approvalSteps', function($q) use ($user) {
-                            $q->where('acted_by', $user->id)
-                              ->whereIn('status', ['APPROVED', 'REJECTED']);
-                        });
-                    });
-                    return;
-                }
-
-                // Mặc định: không xem gì
-                $q->whereRaw('1 = 0');
-            })
-            ->when($request->status, fn($q, $status) => $q->where('status', $status))
-            ->when($request->workflow_type, fn($q, $type) => $q->where('workflow_type', $type))
-            ->when($request->department_id, function($q, $deptId) {
+            ->visibleTo($user)
+            ->when($request->status, fn ($q, $status) => $q->where('status', $status))
+            ->when($request->workflow_type, fn ($q, $type) => $q->where('workflow_type', $type))
+            ->when($request->department_id, function ($q, $deptId) {
                 // Optimize: filter by creator's department_id directly instead of nested whereHas
-                $q->whereHas('creator', fn($query) => $query->where('department_id', $deptId));
+                $q->whereHas('creator', fn ($query) => $query->where('department_id', $deptId));
             })
-            ->when($request->created_by, fn($q, $creatorId) => $q->where('created_by', $creatorId))
-            ->when($request->search, function($q, $search) {
-                $q->where(function($query) use ($search) {
+            ->when($request->created_by, fn ($q, $creatorId) => $q->where('created_by', $creatorId))
+            ->when($request->search, function ($q, $search) {
+                $q->where(function ($query) use ($search) {
                     $query->where('code', 'like', "%{$search}%")
-                          ->orWhere('title', 'like', "%{$search}%");
+                        ->orWhere('title', 'like', "%{$search}%");
                 });
             })
             ->latest()
@@ -263,7 +101,7 @@ class VendorReportController extends Controller
         $currentUser = auth()->user();
         if ($currentUser && $currentUser->hasRole('requester')) {
             // Check if current user is not already in the list
-            if (!$purchasingAdmins->contains('id', $currentUser->id)) {
+            if (! $purchasingAdmins->contains('id', $currentUser->id)) {
                 $purchasingAdmins->push([
                     'id' => $currentUser->id,
                     'name' => $currentUser->name,
@@ -381,8 +219,7 @@ class VendorReportController extends Controller
             $roleKey = $currentStep->selection_role;
 
             // Get users by role using Spatie role() query
-            $selectableApprovers = \App\Models\User::role($roleKey)
-                ->where('is_active', true)
+            $selectableApprovers = \App\Models\User::activeWithRole($roleKey)
                 ->orderBy('name')
                 ->get(['id', 'name', 'email']);
         }
@@ -454,7 +291,7 @@ class VendorReportController extends Controller
         $currentUser = auth()->user();
         if ($currentUser && $currentUser->hasRole('requester')) {
             // Check if current user is not already in the list
-            if (!$purchasingAdmins->contains('id', $currentUser->id)) {
+            if (! $purchasingAdmins->contains('id', $currentUser->id)) {
                 $purchasingAdmins->push([
                     'id' => $currentUser->id,
                     'name' => $currentUser->name,
@@ -676,7 +513,7 @@ class VendorReportController extends Controller
     {
         $this->authorize('clone', $vendorReport);
 
-        if (!$vendorReport->canBeCloned()) {
+        if (! $vendorReport->canBeCloned()) {
             return back()->with('error', 'Phiếu này không thể clone (đã bị từ chối và đã có phiếu clone hoặc chưa bị từ chối)');
         }
 
@@ -742,7 +579,7 @@ class VendorReportController extends Controller
         $this->authorize('view', $file->report);
 
         // Check if file exists
-        if (!\Storage::disk('private')->exists($file->path)) {
+        if (! \Storage::disk('private')->exists($file->path)) {
             abort(404, 'File không tồn tại');
         }
 
@@ -751,7 +588,7 @@ class VendorReportController extends Controller
 
         return response()->file($filePath, [
             'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . $file->original_name . '"'
+            'Content-Disposition' => 'inline; filename="'.$file->original_name.'"',
         ]);
     }
 
@@ -766,7 +603,7 @@ class VendorReportController extends Controller
         $this->authorize('view', $file->report);
 
         // Check if file exists
-        if (!\Storage::disk($file->disk)->exists($file->path)) {
+        if (! \Storage::disk($file->disk)->exists($file->path)) {
             abort(404, 'File không tồn tại');
         }
 
@@ -788,20 +625,20 @@ class VendorReportController extends Controller
             'creator:id,name,email,department_id',
             'creator.department:id,name',
             'purchasingAdmin:id,name,email',
-            'approvalSteps' => function($query) {
+            'approvalSteps' => function ($query) {
                 $query->orderBy('step_order')
                     ->with([
                         'assignee:id,name,email',
-                        'actedBy:id,name,email'
+                        'actedBy:id,name,email',
                     ]);
             },
-            'files' => function($query) {
+            'files' => function ($query) {
                 $query->orderBy('created_at');
-            }
+            },
         ]);
 
         return view('vendor-reports.print', [
-            'report' => $vendorReport
+            'report' => $vendorReport,
         ]);
     }
 }
