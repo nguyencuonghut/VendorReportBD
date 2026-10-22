@@ -260,7 +260,7 @@ Các câu hỏi này không cản kết luận hiện trạng hoặc việc chu�
 - [x] Builder/submission thống nhất điều kiện Trưởng phòng và không tự duyệt workflow mới.
 - [x] Backend xác thực người BGĐ được chọn; xử lý cạnh tranh và rollback nguyên tử.
 - [x] Create/Edit/Show, list, dashboard, bản in và notifications nghiệm thu đúng luồng (mục 13).
-- [ ] Regression sáu workflow cũ, dữ liệu đã submit và clone.
+- [x] Regression sáu workflow cũ, dữ liệu đã submit và clone (mục 14).
 - [ ] Chốt các lựa chọn nghiệp vụ, cập nhật tài liệu và ghi kết quả kiểm thử thực tế.
 
 ## 11. Kết quả thực hiện Bước 1–2
@@ -398,3 +398,34 @@ php vendor/bin/phpunit \
 ```
 
 **Bước 5 hoàn tất.** Bước 6 và các quyết định trước phát hành ở mục 9 vẫn còn riêng; chưa commit hoặc migrate database ứng dụng.
+
+
+## 14. Bước 6 — Regression và tài liệu bàn giao
+
+Commit `7fa2484` lưu toàn bộ triển khai đến Bước 5. Phần Bước 6 được thực hiện tiếp sau commit này, dùng local skill `tdd` và agents riêng cho regression/tài liệu.
+
+### Phạm vi dữ liệu mẫu
+
+Không bổ sung hoặc chạy lại `VendorReportSeeder`: seeder hiện tạo 500 phiếu tổng hợp và tự định nghĩa steps, có khác biệt với runtime (ví dụ `URGENT` chỉ có `BOD`), chưa sinh `INTERNAL_CONTROL_BOD`. Các fixture tối thiểu của test và walkthrough gọi luồng thật đã đủ cho nghiệm thu. Nếu cần mở rộng demo sau này, phải sửa đồng bộ phân bố loại phiếu và bộ sinh steps; không coi seeder hiện tại là nguồn định nghĩa workflow.
+
+### Giới hạn trước phát hành
+
+- Không chạy migration hoặc seeder trên DB ứng dụng. Kết quả SQLite/MariaDB tạm không thay thế kiểm tra schema drift và bản sao dữ liệu thực trước deploy.
+- Các điểm mục 9 vẫn cần chủ nghiệp vụ xác nhận trước phát hành: loại mới là lựa chọn bổ sung, KSNB chọn user role `bod`, hai thao tác thủ công không ép ba người khác nhau, assignment giữ theo người đã chọn. Chưa có cơ chế gán lại khi người duyệt bị khóa/xóa.
+- `npm audit --omit=dev` trước commit báo **23 vulnerabilities (3 moderate, 20 high)** trên dependency hiện có. Không tự nâng dependency trong phạm vi workflow; cần xử lý riêng trước rollout theo đánh giá môi trường sử dụng.
+- Toàn bộ suite vẫn có lỗi nền về role cũ và `/` redirect; kết quả kiểm thử mục tiêu phải được báo riêng, không tuyên bố toàn suite xanh.
+
+
+### Kết quả regression ngày 22/10/2026
+
+- **68 tests, 1.809 assertions đạt** cho workflow và migration SQLite. Bổ sung vào test hiện có, không tạo bộ fixture trùng: sáu workflow cũ duyệt đến `APPROVED` với lựa chọn hợp lệ từng bước; sáu ca từ chối/clone/submit lại bảo toàn lịch sử; NORMAL giữ snapshot sau khi config thay đổi; creator là Trưởng phòng vẫn tự duyệt bước đầu của workflow cũ.
+- Toàn suite: **87 tests, 1.815 assertions; 12 errors, 1 failure, 4 skipped**. Các errors vẫn thuộc `RolePermissionTest`/`UserManagementTest` dùng tên role cũ; failure vẫn là `ExampleTest` kỳ vọng HTTP 200 trong khi route `/` redirect 302. Bốn test concurrency skip đúng điều kiện SQLite, đã kiểm chứng MariaDB riêng ở Bước 4. Không sửa kỳ vọng hoặc bỏ qua lỗi nền để làm suite xanh.
+- Pint file test và `git diff --check` đạt. Bước 6 không thay đổi production code/frontend; build và walkthrough đã đạt ở mục 13, không cần chạy lại chỉ vì chỉnh test/tài liệu.
+- Đã cập nhật `vendor_report_system_design.md`, `IMPLEMENTATION_PLAN.md` và liên kết từ `DOCUMENTATION_INDEX.md`; đây là tài liệu trạng thái triển khai, không phải xác nhận đã deploy.
+
+**Bước 6 hoàn tất trong phạm vi phát triển và kiểm thử.** Checklist chốt nghiệp vụ trước phát hành vẫn để mở; cần xử lý lỗi nền/dependency và xác minh môi trường thật trước rollout. Bước 6 được lưu trong commit tiếp theo; commit `7fa2484` chứa Bước 1–5.
+
+
+### Xác nhận kiểm thử dev từ người dùng
+
+Ngày 22/10/2026, người dùng xác nhận đã test xong và kết quả OK trên môi trường dev, đồng thời yêu cầu commit. Đây là xác nhận do người dùng cung cấp; không suy diễn thành xác nhận triển khai production hoặc chốt toàn bộ các câu hỏi nghiệp vụ ở mục 9.

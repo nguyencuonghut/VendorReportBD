@@ -1,18 +1,33 @@
 # KẾ HOẠCH TRIỂN KHAI HỆ THỐNG QUẢN LÝ BÁO CÁO LỰA CHỌN NHÀ CUNG CẤP
 
 **Ngày tạo:** 29/01/2026  
-**Ngày cập nhật:** 29/01/2026  
+**Ngày cập nhật:** 22/10/2026
 **Dự án:** Vendor Report Management System  
 **Framework:** Laravel 12 + Inertia.js + Vue 3 + PrimeVue 4
+
+
+> **Phạm vi tài liệu:** Kế hoạch nền ngày 29/01/2026 được giữ làm lịch sử. Tổng quan workflow và phần cập nhật dưới đây phản ánh source ngày 22/10/2026; các checklist, thời lượng và mã minh họa trong PHASE 1–7 phía dưới không phải báo cáo tiến độ hiện tại. Đặc biệt ví dụ config có `PURCHASING_ADMIN`, enum chỉ năm giá trị và hướng dẫn sửa migration cũ đã lỗi thời; không sao chép chúng để triển khai.
+
+## Cập nhật quy trình KSNB → Giám đốc (22/10/2026)
+
+Nguồn triển khai: [kế hoạch và kết quả nghiệm thu](docs/PLAN_INTERNAL_CONTROL_BOD_WORKFLOW.md), [thiết kế hiện hành](vendor_report_system_design.md), [config workflow](config/vendor_report_workflows.php).
+
+- Đã thêm lựa chọn thứ bảy `INTERNAL_CONTROL_BOD`: nhân viên lưu nháp/gửi → KSNB chọn Giám đốc → Giám đốc được chọn duyệt. Giữ sáu loại cũ và mặc định `NORMAL`; không chuyển đổi phiếu đã gửi.
+- Phòng ban phải hoạt động; chỉ workflow chứa `DEPT_HEAD` mới cần Trưởng phòng. Loại mới preflight KSNB/BGĐ active, chưa xóa và luôn cần hai thao tác duyệt thủ công, kể cả creator kiêm role.
+- Builder, submission và approval hiện có thực hiện workflow; dùng chung `activeWithRole()`, `canActOn()`, `pendingApprovers()` thay vì viết engine khác. Backend kiểm tra người được chọn đúng role/active/chưa xóa và chặn payload lựa chọn ở bước không yêu cầu.
+- Khóa report trước steps, đọc lại trạng thái/quyền trong transaction; audit cùng transaction, notifications sau commit. Runtime steps và assignment cụ thể là snapshot, không dựng lại theo config mới.
+- `visibleTo()`, `awaitingApprovalBy()` và `pendingFor()` thống nhất quyền nhiều role, danh sách và dashboard theo bước hiện tại. Create/Edit dùng mô tả chung; Show khóa duyệt khi thiếu BGĐ hợp lệ, hiển thị lỗi backend; timeline/bản in dùng steps thật.
+- Migration nâng cấp riêng hỗ trợ MySQL/MariaDB và SQLite; giữ dữ liệu cũ, chặn rollback nếu còn loại mới. Không chạy `migrate:fresh` lên DB ứng dụng.
+- `VendorReportSeeder` giữ nguyên: chưa tạo loại mới, có chuỗi mô phỏng khác config; không dùng làm chuẩn kiểm thử. Test dùng fixture tối thiểu qua builder/routes/services thật.
+- Kết quả test, giới hạn và quyết định nghiệp vụ còn mở nằm trong kế hoạch liên kết trên. Chưa xác nhận migrate DB ứng dụng hay triển khai production; chính sách tách người, thu hồi role/gán lại cần chốt riêng.
 
 ---
 
 ## 🎯 NGUYÊN TẮC QUAN TRỌNG
 
-### 1. ✅ **Môi trường DEV - Sửa Migration Trực Tiếp**
-- **KHÔNG** tạo migration mới để add column vào bảng có sẵn
-- **SỬA TRỰC TIẾP** vào file migration hiện có
-- Ví dụ: Thêm columns vào users → Sửa file `0001_01_01_000000_create_users_table.php`
+### 1. ✅ **Nâng cấp schema bằng migration mới**
+- Hướng dẫn sửa trực tiếp migration ở bản kế hoạch DEV cũ chỉ áp dụng thời điểm dựng schema ban đầu.
+- Với database đã migrate, tạo migration nâng cấp và kiểm thử giữ dữ liệu; không sửa migration tạo bảng để thêm workflow mới.
 
 ### 2. ✅ **Enum Labels từ Backend**
 - Backend return labels tiếng Việt qua Resource
@@ -39,7 +54,7 @@
 
 ---
 
-## 📋 CHI TIẾT 5 WORKFLOWS
+## 📋 CHI TIẾT 7 WORKFLOWS
 
 ### Workflow 1: NORMAL - Phiếu thường
 ```
@@ -88,9 +103,21 @@ Người tạo → Trưởng phòng (tick gấp + chọn BGĐ) → BGĐ
 1. **DEPT_HEAD**: Trưởng phòng duyệt + tick "Phiếu gấp" + chọn BGĐ
 2. **BOD**: Ban giám đốc duyệt (BỎ QUA kiểm soát nội bộ)
 
+### Workflow 6: SPECIAL_4 - Bỏ qua Trưởng phòng, qua hai lượt BGĐ
+
+Người tạo → KSNB (chọn BGĐ 1) → BGĐ 1 (chọn BGĐ 2) → BGĐ 2.
+
+Steps: `INTERNAL_CONTROL → BOD_1 → BOD_2`.
+
+### Workflow 7: INTERNAL_CONTROL_BOD - KSNB → Giám đốc
+
+Người tạo → KSNB (chọn Giám đốc) → Giám đốc được chọn.
+
+Steps: `INTERNAL_CONTROL → BOD`; không có `DEPT_HEAD`, không có BGĐ lần hai. Cả hai lượt duyệt thủ công; không yêu cầu Trưởng phòng của department. KSNB chọn user role `bod` active, chưa xóa; user được chọn mới có quyền xử lý bước BGĐ.
+
 ---
 
-## 📊 TỔNG QUAN HIỆN TRẠNG
+## 📊 TỔNG QUAN TẠI THỜI ĐIỂM LẬP KẾ HOẠCH 29/01/2026
 
 ### ✅ Đã hoàn thành:
 1. **Hạ tầng cơ bản**:

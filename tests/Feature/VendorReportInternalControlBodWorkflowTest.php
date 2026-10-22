@@ -452,14 +452,52 @@ class VendorReportInternalControlBodWorkflowTest extends TestCase
     }
 
     #[DataProvider('legacyWorkflows')]
-    public function test_ac16_legacy_workflows_keep_their_runtime_steps(string $workflow, array $stepKeys): void
+    public function test_ac16_legacy_workflows_keep_their_runtime_steps_and_complete_all_approvals(string $workflow, array $stepKeys): void
     {
         $this->assignDepartmentHead();
+        $actors = [
+            'DEPT_HEAD' => User::findOrFail($this->department->head_user_id),
+            'INTERNAL_CONTROL' => $this->internalControl,
+            'BOD' => $this->director,
+            'BOD_1' => $this->director,
+            'BOD_2' => $this->otherDirector,
+            'NATIONAL_PURCHASING' => $this->userWithRole('national_purchasing'),
+            'TECH_BOARD' => $this->userWithRole('tech_board'),
+        ];
+        $headSelection = match ($workflow) {
+            'SPECIAL_2' => $actors['NATIONAL_PURCHASING']->id,
+            'SPECIAL_3' => $actors['TECH_BOARD']->id,
+            'URGENT' => $this->director->id,
+            default => null,
+        };
         $id = $this->createDraft($workflow);
         $this->submitAsRequester($id);
 
         $page = $this->showReport($id)->assertJsonPath('props.report.data.workflow_type', $workflow);
         $this->assertSame($stepKeys, array_column($page->json('props.approvalSteps'), 'step_key'));
+
+        foreach ($stepKeys as $index => $stepKey) {
+            $this->showReport($id, $actors[$stepKey])
+                ->assertJsonPath('props.report.data.status', 'IN_APPROVAL')
+                ->assertJsonPath('props.currentStep.data.step_key', $stepKey);
+            $selection = match ($stepKey) {
+                'DEPT_HEAD' => $headSelection,
+                'INTERNAL_CONTROL' => $this->director->id,
+                'BOD_1' => $this->otherDirector->id,
+                default => null,
+            };
+            $this->approveAs($id, $actors[$stepKey], $selection);
+            $this->showReport($id)
+                ->assertJsonPath("props.approvalSteps.$index.status", 'APPROVED')
+                ->assertJsonPath("props.approvalSteps.$index.acted_by_user.data.id", $actors[$stepKey]->id);
+        }
+
+        $completed = $this->showReport($id)
+            ->assertJsonPath('props.report.data.status', 'APPROVED')
+            ->assertJsonPath('props.currentStep', null);
+        $this->assertNotNull($completed->json('props.report.data.approved_at'));
+        $this->assertCount(count($stepKeys), collect($completed->json('props.activities'))->where('description', 'approved'));
+        Notification::assertSentTo($this->requester, VendorReportApproved::class);
     }
 
     public static function legacyWorkflows(): array
@@ -472,6 +510,87 @@ class VendorReportInternalControlBodWorkflowTest extends TestCase
             'urgent' => ['URGENT', ['DEPT_HEAD', 'BOD']],
             'existing head bypass' => ['SPECIAL_4', ['INTERNAL_CONTROL', 'BOD_1', 'BOD_2']],
         ];
+    }
+
+    public function test_ac16_submitted_legacy_report_finishes_its_snapshot_after_configuration_changes(): void
+    {
+        $this->assignDepartmentHead();
+        $head = User::findOrFail($this->department->head_user_id);
+        $id = $this->createDraft('NORMAL');
+        $this->submitAsRequester($id);
+        $snapshot = $this->showReport($id)->json('props.approvalSteps');
+
+        // A later configuration deployment must not rebuild an in-flight report.
+        config(['vendor_report_workflows.NORMAL' => [
+            ['step_key' => 'TECH_BOARD', 'requires_selection' => false],
+        ]]);
+        $this->assertSame($snapshot, $this->showReport($id)->json('props.approvalSteps'));
+        $this->approveAs($id, $head);
+        $this->showReport($id)->assertJsonPath('props.currentStep.data.step_key', 'INTERNAL_CONTROL');
+        $this->approveAs($id, $this->internalControl, $this->director->id);
+        $this->showReport($id)->assertJsonPath('props.currentStep.data.step_key', 'BOD')
+            ->assertJsonPath('props.approvalSteps.2.assignee_user.data.id', $this->director->id);
+        $this->approveAs($id, $this->director);
+        $completed = $this->showReport($id)->assertJsonPath('props.report.data.status', 'APPROVED');
+        $this->assertSame(['DEPT_HEAD', 'INTERNAL_CONTROL', 'BOD'], array_column($completed->json('props.approvalSteps'), 'step_key'));
+        $this->assertSame(array_column($snapshot, 'id'), array_column($completed->json('props.approvalSteps'), 'id'));
+    }
+
+    public function test_ac16_legacy_creator_department_head_is_still_automatically_approved(): void
+    {
+        $this->department->update(['head_user_id' => $this->requester->id]);
+        $id = $this->createDraft('NORMAL');
+        $this->submitAsRequester($id);
+
+        $this->showReport($id)
+            ->assertJsonPath('props.report.data.status', 'IN_APPROVAL')
+            ->assertJsonPath('props.approvalSteps.0.status', 'APPROVED')
+            ->assertJsonPath('props.approvalSteps.0.acted_by_user.data.id', $this->requester->id)
+            ->assertJsonPath('props.currentStep.data.step_key', 'INTERNAL_CONTROL');
+        Notification::assertNotSentTo($this->requester, VendorReportSubmitted::class);
+        Notification::assertSentTo($this->internalControl, VendorReportSubmitted::class);
+        $this->approveAs($id, $this->internalControl, $this->director->id);
+        $this->approveAs($id, $this->director);
+        $this->showReport($id)->assertJsonPath('props.report.data.status', 'APPROVED');
+    }
+
+    #[DataProvider('legacyWorkflows')]
+    public function test_ac16_legacy_rejection_and_clone_preserve_history_and_restart_the_same_workflow(string $workflow, array $stepKeys): void
+    {
+        $this->assignDepartmentHead();
+        $id = $this->createDraft($workflow);
+        $this->submitAsRequester($id);
+        $firstApprover = $workflow === 'SPECIAL_4'
+            ? $this->internalControl
+            : User::findOrFail($this->department->head_user_id);
+        $this->actingAs($firstApprover)
+            ->post(route('vendor-reports.reject', $id), ['rejection_note' => 'Cần bổ sung báo giá'])
+            ->assertSessionHasNoErrors()->assertSessionMissing('error')->assertSessionHas('success');
+        $rejected = $this->showReport($id)
+            ->assertJsonPath('props.report.data.status', 'REJECTED')
+            ->assertJsonPath('props.currentStep', null)
+            ->assertJsonPath('props.approvalSteps.0.status', 'REJECTED');
+        $originalSteps = $rejected->json('props.approvalSteps');
+
+        $clone = $this->actingAs($this->requester)->post(route('vendor-reports.clone', $id))
+            ->assertSessionHasNoErrors()->assertSessionMissing('error')->assertRedirect();
+        $edit = $this->get($clone->headers->get('Location'), ['X-Inertia' => 'true'])->assertOk()
+            ->assertJsonPath('props.report.data.workflow_type', $workflow)
+            ->assertJsonPath('props.report.data.status', 'DRAFT')
+            ->assertJsonPath('props.report.data.parent_id', $id)
+            ->assertJsonPath('props.report.data.root_id', $id);
+        $cloneId = $edit->json('props.report.data.id');
+        $this->put(route('vendor-reports.update', $cloneId), $this->draftPayload($workflow))
+            ->assertSessionHasNoErrors()->assertSessionMissing('error');
+        $this->submitAsRequester($cloneId);
+        $restarted = $this->showReport($cloneId)
+            ->assertJsonPath('props.report.data.status', 'IN_APPROVAL')
+            ->assertJsonPath('props.currentStep.data.step_key', $stepKeys[0]);
+        $newSteps = $restarted->json('props.approvalSteps');
+        $this->assertSame($stepKeys, array_column($newSteps, 'step_key'));
+        $this->assertSame(array_fill(0, count($stepKeys), 'PENDING'), array_column($newSteps, 'status'));
+        $this->assertEmpty(array_intersect(array_column($originalSteps, 'id'), array_column($newSteps, 'id')));
+        $this->assertSame($originalSteps, $this->showReport($id)->json('props.approvalSteps'));
     }
 
     public function test_ac16_legacy_workflow_with_head_step_still_requires_a_department_head(): void

@@ -1,4 +1,12 @@
-# 📚 Documentation Index - Roles & Permissions
+# 📚 Documentation Index - Vendor Reports, Roles & Permissions
+
+## Quy trình phiếu lựa chọn nhà cung cấp
+
+- [Kế hoạch KSNB → Giám đốc](docs/PLAN_INTERNAL_CONTROL_BOD_WORKFLOW.md): phạm vi `INTERNAL_CONTROL_BOD`, sáu bước triển khai, ma trận nghiệm thu, kết quả thực tế và các quyết định nghiệp vụ còn mở.
+- [Thiết kế hệ thống](vendor_report_system_design.md): bảy workflow, runtime snapshot, quyền xem/duyệt, khóa transaction và thông báo sau commit; cập nhật workflow ngày 22/10/2026.
+- [Kế hoạch triển khai nền](IMPLEMENTATION_PLAN.md): phần cập nhật workflow hiện tại ở đầu tài liệu; các PHASE lịch sử ngày 29/01/2026 không phản ánh tiến độ hiện tại.
+
+Các tài liệu Roles & Permissions dưới đây thuộc giai đoạn RBAC nền. Các báo cáo “hoàn thành” trong nhóm đó không thay cho nghiệm thu workflow hoặc xác nhận triển khai production.
 
 ## 🎯 Chọn Tài Liệu Phù Hợp
 
@@ -210,4 +218,4 @@ Routes/
 
 **Happy Coding! 🚀**
 
-*Last updated: October 16, 2025*
+*Mục workflow cập nhật: 22/10/2026. Các mục RBAC giữ nội dung lịch sử ngày 16/10/2025.*
